@@ -15,3 +15,28 @@ func TestError(t *testing.T) {
 		t.Errorf("Error(...) = %q", got)
 	}
 }
+
+func TestBulkString(t *testing.T) {
+	tests := []struct {
+		text string
+		want string
+	}{
+		{"kevin", "$5\r\nkevin\r\n"},
+		{"", "$0\r\n\r\n"},
+		{"a\r\nb", "$4\r\na\r\nb\r\n"},
+	}
+
+	for _, test := range tests {
+		got := BulkString(test.text)
+		if got != test.want {
+			t.Errorf("BulkString(%q) = %q, want %q", test.text, got, test.want)
+		}
+	}
+}
+
+func TestNull(t *testing.T) {
+	got := Null()
+	if got != "$-1\r\n" {
+		t.Errorf("Null() = %q", got)
+	}
+}
