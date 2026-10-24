@@ -1,3 +1,4 @@
+// Package resp reads commands sent in RESP, the protocol Redis clients use.
 package resp
 
 import (
