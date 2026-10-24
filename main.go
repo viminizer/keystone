@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 )
@@ -23,6 +24,21 @@ func main() {
 		}
 
 		fmt.Println("client connected")
+
+		buffer := make([]byte, 1024)
+		for {
+			count, err := connection.Read(buffer)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				fmt.Println("could not read from the client:", err)
+				break
+			}
+
+			fmt.Printf("received %q\n", buffer[:count])
+		}
+
 		connection.Close()
 	}
 }
