@@ -40,3 +40,10 @@ func TestNull(t *testing.T) {
 		t.Errorf("Null() = %q", got)
 	}
 }
+
+func TestInteger(t *testing.T) {
+	got := Integer(2)
+	if got != ":2\r\n" {
+		t.Errorf("Integer(2) = %q", got)
+	}
+}

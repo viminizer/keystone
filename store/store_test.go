@@ -58,3 +58,18 @@ func TestManyGoroutines(t *testing.T) {
 		}
 	}
 }
+
+func TestDelete(t *testing.T) {
+	db := New()
+	db.Set("name", "kevin")
+
+	if !db.Delete("name") {
+		t.Error("Delete on an existing key returned false")
+	}
+	if _, found := db.Get("name"); found {
+		t.Error("key still exists after Delete")
+	}
+	if db.Delete("name") {
+		t.Error("Delete on a missing key returned true")
+	}
+}

@@ -29,3 +29,12 @@ func (s *Store) Get(key string) (string, bool) {
 	s.mutex.Unlock()
 	return value, found
 }
+
+// Delete removes the key. It returns false if the key did not exist.
+func (s *Store) Delete(key string) bool {
+	s.mutex.Lock()
+	_, found := s.data[key]
+	delete(s.data, key)
+	s.mutex.Unlock()
+	return found
+}

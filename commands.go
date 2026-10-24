@@ -36,6 +36,18 @@ func runCommand(command []string, db *store.Store) string {
 		}
 		return resp.BulkString(value)
 
+	case "DEL":
+		if len(command) < 2 {
+			return wrongNumberOfArguments(command[0])
+		}
+		deleted := 0
+		for _, key := range command[1:] {
+			if db.Delete(key) {
+				deleted++
+			}
+		}
+		return resp.Integer(deleted)
+
 	default:
 		return resp.Error("ERR unknown command '" + command[0] + "'")
 	}
