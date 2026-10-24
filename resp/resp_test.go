@@ -1,4 +1,4 @@
-package main
+package resp
 
 import (
 	"bufio"
@@ -21,13 +21,13 @@ func TestReadCommand(t *testing.T) {
 
 	for _, test := range tests {
 		reader := bufio.NewReader(strings.NewReader(test.input))
-		got, err := readCommand(reader)
+		got, err := ReadCommand(reader)
 		if err != nil {
-			t.Errorf("readCommand(%q) returned error: %s", test.input, err)
+			t.Errorf("ReadCommand(%q) returned error: %s", test.input, err)
 			continue
 		}
 		if !slices.Equal(got, test.want) {
-			t.Errorf("readCommand(%q) = %q, want %q", test.input, got, test.want)
+			t.Errorf("ReadCommand(%q) = %q, want %q", test.input, got, test.want)
 		}
 	}
 }
@@ -36,11 +36,11 @@ func TestReadCommandTwoCommandsInOneInput(t *testing.T) {
 	input := "*1\r\n$4\r\nPING\r\n*2\r\n$3\r\nGET\r\n$4\r\nname\r\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 
-	first, err := readCommand(reader)
+	first, err := ReadCommand(reader)
 	if err != nil || !slices.Equal(first, []string{"PING"}) {
 		t.Fatalf("first command = %q, %v", first, err)
 	}
-	second, err := readCommand(reader)
+	second, err := ReadCommand(reader)
 	if err != nil || !slices.Equal(second, []string{"GET", "name"}) {
 		t.Fatalf("second command = %q, %v", second, err)
 	}
@@ -51,9 +51,9 @@ func TestReadCommandOneByteAtATime(t *testing.T) {
 	// Each Read gives only 1 byte, like a command split over many chunks.
 	reader := bufio.NewReader(iotest.OneByteReader(strings.NewReader(input)))
 
-	got, err := readCommand(reader)
+	got, err := ReadCommand(reader)
 	if err != nil || !slices.Equal(got, []string{"SET", "name", "kevin"}) {
-		t.Fatalf("readCommand = %q, %v", got, err)
+		t.Fatalf("ReadCommand = %q, %v", got, err)
 	}
 }
 
@@ -71,9 +71,9 @@ func TestReadCommandErrors(t *testing.T) {
 
 	for _, input := range inputs {
 		reader := bufio.NewReader(strings.NewReader(input))
-		_, err := readCommand(reader)
+		_, err := ReadCommand(reader)
 		if err == nil {
-			t.Errorf("readCommand(%q) returned no error", input)
+			t.Errorf("ReadCommand(%q) returned no error", input)
 		}
 	}
 }
