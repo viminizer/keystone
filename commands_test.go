@@ -41,3 +41,24 @@ func TestSetThenGet(t *testing.T) {
 		t.Fatalf("GET = %q", got)
 	}
 }
+
+func TestDel(t *testing.T) {
+	db := store.New()
+	runCommand([]string{"SET", "a", "1"}, db)
+	runCommand([]string{"SET", "b", "2"}, db)
+
+	got := runCommand([]string{"DEL", "a", "b", "c"}, db)
+	if got != ":2\r\n" {
+		t.Fatalf("DEL a b c = %q, want 2 deleted", got)
+	}
+
+	got = runCommand([]string{"DEL", "a"}, db)
+	if got != ":0\r\n" {
+		t.Fatalf("DEL a again = %q, want 0 deleted", got)
+	}
+
+	got = runCommand([]string{"DEL"}, db)
+	if got != "-ERR wrong number of arguments for 'del' command\r\n" {
+		t.Fatalf("DEL with no key = %q", got)
+	}
+}

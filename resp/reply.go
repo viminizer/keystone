@@ -21,3 +21,8 @@ func BulkString(text string) string {
 func Null() string {
 	return "$-1\r\n"
 }
+
+// Integer returns a RESP integer, like ":1\r\n".
+func Integer(number int) string {
+	return ":" + strconv.Itoa(number) + "\r\n"
+}
