@@ -23,22 +23,27 @@ func main() {
 			continue
 		}
 
-		fmt.Println("client connected")
+		go handleConnection(connection)
+	}
+}
 
-		buffer := make([]byte, 1024)
-		for {
-			count, err := connection.Read(buffer)
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				fmt.Println("could not read from the client:", err)
-				break
-			}
+func handleConnection(connection net.Conn) {
+	address := connection.RemoteAddr().String()
+	fmt.Println("client connected from", address)
 
-			fmt.Printf("received %q\n", buffer[:count])
+	buffer := make([]byte, 1024)
+	for {
+		count, err := connection.Read(buffer)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Printf("could not read from %s: %s\n", address, err)
+			break
 		}
 
-		connection.Close()
+		fmt.Printf("received %q from %s\n", buffer[:count], address)
 	}
+
+	connection.Close()
 }
