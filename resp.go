@@ -24,7 +24,7 @@ func readCommand(reader *bufio.Reader) ([]string, error) {
 	}
 
 	command := []string{}
-	for i := 0; i < count; i++ {
+	for range count {
 		line, err := readLine(reader)
 		if err != nil {
 			return nil, err
