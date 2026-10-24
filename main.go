@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/viminizer/keystone/resp"
+	"github.com/viminizer/keystone/store"
 )
 
 func main() {
@@ -19,6 +20,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	db := store.New()
 	for {
 		connection, err := listener.Accept()
 		if err != nil {
@@ -26,11 +28,11 @@ func main() {
 			continue
 		}
 
-		go handleConnection(connection)
+		go handleConnection(connection, db)
 	}
 }
 
-func handleConnection(connection net.Conn) {
+func handleConnection(connection net.Conn, db *store.Store) {
 	address := connection.RemoteAddr().String()
 	fmt.Println("client connected from", address)
 
@@ -47,7 +49,7 @@ func handleConnection(connection net.Conn) {
 
 		fmt.Printf("received %q from %s\n", command, address)
 
-		reply := runCommand(command)
+		reply := runCommand(command, db)
 		if reply == "" {
 			continue
 		}
