@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"net"
@@ -31,9 +32,9 @@ func handleConnection(connection net.Conn) {
 	address := connection.RemoteAddr().String()
 	fmt.Println("client connected from", address)
 
-	buffer := make([]byte, 1024)
+	reader := bufio.NewReader(connection)
 	for {
-		count, err := connection.Read(buffer)
+		command, err := readCommand(reader)
 		if err == io.EOF {
 			break
 		}
@@ -42,7 +43,7 @@ func handleConnection(connection net.Conn) {
 			break
 		}
 
-		fmt.Printf("received %q from %s\n", buffer[:count], address)
+		fmt.Printf("received %q from %s\n", command, address)
 	}
 
 	connection.Close()
