@@ -46,6 +46,16 @@ func handleConnection(connection net.Conn) {
 		}
 
 		fmt.Printf("received %q from %s\n", command, address)
+
+		reply := runCommand(command)
+		if reply == "" {
+			continue
+		}
+		_, err = connection.Write([]byte(reply))
+		if err != nil {
+			fmt.Printf("could not write to %s: %s\n", address, err)
+			break
+		}
 	}
 
 	connection.Close()
