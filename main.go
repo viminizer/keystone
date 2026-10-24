@@ -6,6 +6,8 @@ import (
 	"io"
 	"net"
 	"os"
+
+	"github.com/viminizer/keystone/resp"
 )
 
 func main() {
@@ -34,7 +36,7 @@ func handleConnection(connection net.Conn) {
 
 	reader := bufio.NewReader(connection)
 	for {
-		command, err := readCommand(reader)
+		command, err := resp.ReadCommand(reader)
 		if err == io.EOF {
 			break
 		}

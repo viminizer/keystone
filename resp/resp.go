@@ -1,4 +1,4 @@
-package main
+package resp
 
 import (
 	"bufio"
@@ -8,9 +8,9 @@ import (
 	"strings"
 )
 
-// readCommand reads one command, sent as an array of bulk strings.
+// ReadCommand reads one command, sent as an array of bulk strings.
 // For example "*1\r\n$4\r\nPING\r\n" becomes ["PING"].
-func readCommand(reader *bufio.Reader) ([]string, error) {
+func ReadCommand(reader *bufio.Reader) ([]string, error) {
 	line, err := readLine(reader)
 	if err != nil {
 		return nil, err
