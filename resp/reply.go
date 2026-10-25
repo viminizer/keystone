@@ -34,7 +34,9 @@ func Integer(number int) string {
 // ReadCommand reads. For example ["PING"] becomes "*1\r\n$4\r\nPING\r\n".
 func Command(parts []string) string {
 	var builder strings.Builder
-	builder.WriteString("*" + strconv.Itoa(len(parts)) + "\r\n")
+	builder.WriteString("*")
+	builder.WriteString(strconv.Itoa(len(parts)))
+	builder.WriteString("\r\n")
 	for _, part := range parts {
 		builder.WriteString(BulkString(part))
 	}
