@@ -37,7 +37,7 @@ func main() {
 		fmt.Println("could not open the append-only file:", err)
 		os.Exit(1)
 	}
-	go stopOnSignal(aofLog)
+	go stopOnKillSignal(aofLog)
 	go aofLog.RunSync()
 	go runAutoRewrite(db, aofLog)
 	go db.RunActiveExpiry()
@@ -90,12 +90,12 @@ func handleConnection(connection net.Conn, db *store.Store, aofLog *aof.Log) {
 	connection.Close()
 }
 
-// stopOnSignal waits for Ctrl+C (SIGINT) or kill (SIGTERM), and then stops
+// stopOnKillSignal waits for Ctrl+C (SIGINT) or kill (SIGTERM), and then stops
 // keystone cleanly. It never returns, so start it with go.
-func stopOnSignal(aofLog *aof.Log) {
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-	received := <-signals
+func stopOnKillSignal(aofLog *aof.Log) {
+	killSignals := make(chan os.Signal, 1)
+	signal.Notify(killSignals, syscall.SIGINT, syscall.SIGTERM)
+	received := <-killSignals
 	fmt.Printf("received %s, stopping\n", received)
 
 	// Wait for a running write or rewrite to finish. New writes then wait
