@@ -229,3 +229,52 @@ func TestExpireIsLoggedAsAMoment(t *testing.T) {
 		t.Errorf("logged %q, want a time between %d and %d", command, before, after)
 	}
 }
+
+func TestRestartKeepsData(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "appendonly.aof")
+	aofLog, _ := aof.Open(path)
+	before := store.New()
+	runCommand([]string{"SET", "name", "kevin"}, before, aofLog)
+	runCommand([]string{"SET", "session", "abc", "EX", "100"}, before, aofLog)
+	runCommand([]string{"SET", "old", "x"}, before, aofLog)
+	runCommand([]string{"DEL", "old"}, before, aofLog)
+
+	// A new, empty store, like after a restart.
+	after := store.New()
+	aof.Load(path, func(command []string) {
+		runCommand(command, after, nil)
+	})
+
+	tests := []struct {
+		command []string
+		want    string
+	}{
+		{[]string{"GET", "name"}, "$5\r\nkevin\r\n"},
+		{[]string{"GET", "session"}, "$3\r\nabc\r\n"},
+		{[]string{"TTL", "session"}, ":100\r\n"},
+		{[]string{"GET", "old"}, "$-1\r\n"},
+	}
+	for _, test := range tests {
+		got := runCommand(test.command, after, nil)
+		if got != test.want {
+			t.Errorf("after restart, runCommand(%q) = %q, want %q", test.command, got, test.want)
+		}
+	}
+}
+
+func TestRestartDropsExpiredKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "appendonly.aof")
+	aofLog, _ := aof.Open(path)
+	runCommand([]string{"SET", "name", "kevin"}, store.New(), aofLog)
+	aSecondAgo := strconv.FormatInt(time.Now().Add(-time.Second).UnixMilli(), 10)
+	aofLog.Append([]string{"PEXPIREAT", "name", aSecondAgo})
+
+	after := store.New()
+	aof.Load(path, func(command []string) {
+		runCommand(command, after, nil)
+	})
+
+	if got := runCommand([]string{"GET", "name"}, after, nil); got != "$-1\r\n" {
+		t.Errorf("GET name after restart = %q, want the key to be expired", got)
+	}
+}

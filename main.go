@@ -12,24 +12,37 @@ import (
 	"github.com/viminizer/keystone/store"
 )
 
+const aofPath = "appendonly.aof"
+
 func main() {
 	fmt.Println("keystone is starting")
+
+	db := store.New()
+
+	// Load the saved changes before any client can connect, so no client
+	// sees the data half loaded. They are not written to the log again.
+	loaded, err := aof.Load(aofPath, func(command []string) {
+		runCommand(command, db, nil)
+	})
+	if err != nil {
+		fmt.Println("could not load the append-only file:", err)
+		os.Exit(1)
+	}
+	fmt.Printf("loaded %d commands from %s\n", loaded, aofPath)
+
+	aofLog, err := aof.Open(aofPath)
+	if err != nil {
+		fmt.Println("could not open the append-only file:", err)
+		os.Exit(1)
+	}
+	go aofLog.RunSync()
+	go db.RunActiveExpiry()
 
 	listener, err := net.Listen("tcp", ":6380")
 	if err != nil {
 		fmt.Println("could not listen on port 6380:", err)
 		os.Exit(1)
 	}
-
-	aofLog, err := aof.Open("appendonly.aof")
-	if err != nil {
-		fmt.Println("could not open the append-only file:", err)
-		os.Exit(1)
-	}
-	go aofLog.RunSync()
-
-	db := store.New()
-	go db.RunActiveExpiry()
 
 	for {
 		connection, err := listener.Accept()
