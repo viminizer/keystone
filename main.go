@@ -36,6 +36,7 @@ func main() {
 		os.Exit(1)
 	}
 	go aofLog.RunSync()
+	go runAutoRewrite(db, aofLog)
 	go db.RunActiveExpiry()
 
 	listener, err := net.Listen("tcp", ":6380")

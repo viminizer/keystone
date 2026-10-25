@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/viminizer/keystone/aof"
@@ -17,10 +16,6 @@ import (
 // log. So the commands in the log are always in the same order as they
 // changed the store.
 var writeMutex sync.Mutex
-
-// rewriting is true while the log is being rewritten, so only one rewrite
-// runs at a time.
-var rewriting atomic.Bool
 
 // runCommand runs one command and returns the reply to send.
 // An empty command gets no reply, so it returns "".
@@ -134,14 +129,9 @@ func runCommand(command []string, db *store.Store, aofLog *aof.Log) string {
 		if len(command) != 1 {
 			return wrongNumberOfArguments(command[0])
 		}
-		// CompareAndSwap sets rewriting to true only if it was false.
-		if !rewriting.CompareAndSwap(false, true) {
+		if !startRewrite(db, aofLog) {
 			return resp.Error("ERR Background append only file rewriting already in progress")
 		}
-		go func() {
-			rewriteLog(db, aofLog)
-			rewriting.Store(false)
-		}()
 		return resp.SimpleString("Background append only file rewriting started")
 
 	default:
@@ -161,32 +151,6 @@ func expireAt(key string, at time.Time, db *store.Store, aofLog *aof.Log) string
 	}
 	appendToLog(aofLog, []string{"PEXPIREAT", key, unixMilli(at)})
 	return resp.Integer(1)
-}
-
-// rewriteLog replaces the log with one SET for every key, and a PEXPIREAT
-// for every key with an expiry. It holds writeMutex the whole time, so
-// writes wait until it is done and none of them go into the old file.
-// With many keys that wait gets long. Redis avoids it by writing the new
-// file in a child process and buffering the writes that come in meanwhile.
-func rewriteLog(db *store.Store, aofLog *aof.Log) {
-	writeMutex.Lock()
-	defer writeMutex.Unlock()
-
-	items := db.Snapshot()
-	commands := [][]string{}
-	for _, item := range items {
-		commands = append(commands, []string{"SET", item.Key, item.Value})
-		if !item.ExpiresAt.IsZero() {
-			commands = append(commands, []string{"PEXPIREAT", item.Key, unixMilli(item.ExpiresAt)})
-		}
-	}
-
-	err := aofLog.Rewrite(commands)
-	if err != nil {
-		fmt.Println("could not rewrite the append-only file:", err)
-		return
-	}
-	fmt.Printf("rewrote the append-only file with %d keys\n", len(items))
 }
 
 // appendToLog writes one command to the log. If that fails, the change is

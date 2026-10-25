@@ -60,3 +60,28 @@ func TestRewrite(t *testing.T) {
 		t.Error("the temporary file was not renamed")
 	}
 }
+
+func TestSizes(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "appendonly.aof")
+	os.WriteFile(path, []byte("*1\r\n$4\r\nPING\r\n"), 0644)
+
+	// Open starts from the size of the file on the disk.
+	log, _ := Open(path)
+	checkSizes(t, log, 14, 14)
+
+	// Append only makes the size grow.
+	log.Append([]string{"PING"})
+	checkSizes(t, log, 28, 14)
+
+	// Rewrite sets both to the size of the new file.
+	log.Rewrite([][]string{{"SET", "a", "b"}})
+	checkSizes(t, log, 27, 27)
+}
+
+func checkSizes(t *testing.T, log *Log, wantSize int64, wantBaseSize int64) {
+	t.Helper()
+	size, baseSize := log.Sizes()
+	if size != wantSize || baseSize != wantBaseSize {
+		t.Errorf("Sizes() = %d, %d, want %d, %d", size, baseSize, wantSize, wantBaseSize)
+	}
+}
