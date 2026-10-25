@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/viminizer/keystone/aof"
 	"github.com/viminizer/keystone/resp"
 	"github.com/viminizer/keystone/store"
 )
@@ -20,6 +21,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	aofLog, err := aof.Open("appendonly.aof")
+	if err != nil {
+		fmt.Println("could not open the append-only file:", err)
+		os.Exit(1)
+	}
+	go aofLog.RunSync()
+
 	db := store.New()
 	go db.RunActiveExpiry()
 
@@ -30,11 +38,11 @@ func main() {
 			continue
 		}
 
-		go handleConnection(connection, db)
+		go handleConnection(connection, db, aofLog)
 	}
 }
 
-func handleConnection(connection net.Conn, db *store.Store) {
+func handleConnection(connection net.Conn, db *store.Store, aofLog *aof.Log) {
 	address := connection.RemoteAddr().String()
 	fmt.Println("client connected from", address)
 
@@ -51,7 +59,7 @@ func handleConnection(connection net.Conn, db *store.Store) {
 
 		fmt.Printf("received %q from %s\n", command, address)
 
-		reply := runCommand(command, db)
+		reply := runCommand(command, db, aofLog)
 		if reply == "" {
 			continue
 		}

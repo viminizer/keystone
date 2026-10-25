@@ -78,7 +78,7 @@ func TestDelete(t *testing.T) {
 func TestExpiredKeyIsGone(t *testing.T) {
 	db := New()
 	db.Set("name", "kevin")
-	db.Expire("name", 10*time.Millisecond)
+	db.ExpireAt("name", time.Now().Add(10*time.Millisecond))
 
 	if _, found := db.Get("name"); !found {
 		t.Fatal("key is gone before it expired")
@@ -91,7 +91,7 @@ func TestExpiredKeyIsGone(t *testing.T) {
 
 func TestExpireMissingKey(t *testing.T) {
 	db := New()
-	if db.Expire("name", time.Second) {
+	if db.ExpireAt("name", time.Now().Add(time.Second)) {
 		t.Error("Expire on a missing key returned true")
 	}
 }
@@ -99,7 +99,7 @@ func TestExpireMissingKey(t *testing.T) {
 func TestSetRemovesExpiry(t *testing.T) {
 	db := New()
 	db.Set("name", "kevin")
-	db.Expire("name", time.Second)
+	db.ExpireAt("name", time.Now().Add(time.Second))
 	db.Set("name", "alex")
 
 	expiresAt, _ := db.ExpiresAt("name")
@@ -110,7 +110,7 @@ func TestSetRemovesExpiry(t *testing.T) {
 
 func TestSetWithExpiry(t *testing.T) {
 	db := New()
-	db.SetWithExpiry("name", "kevin", 10*time.Millisecond)
+	db.SetWithExpiry("name", "kevin", time.Now().Add(10*time.Millisecond))
 
 	if value, found := db.Get("name"); !found || value != "kevin" {
 		t.Fatalf("Get(\"name\") = %q, %v", value, found)

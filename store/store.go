@@ -40,11 +40,11 @@ func (s *Store) Set(key string, value string) {
 }
 
 // SetWithExpiry saves the value under the key, and makes the key expire
-// after the given time. Both happen under one lock, so no other client
+// at the given moment. Both happen under one lock, so no other client
 // can see the key without its expiry.
-func (s *Store) SetWithExpiry(key string, value string, after time.Duration) {
+func (s *Store) SetWithExpiry(key string, value string, at time.Time) {
 	s.mutex.Lock()
-	s.data[key] = entry{value: value, expiresAt: time.Now().Add(after)}
+	s.data[key] = entry{value: value, expiresAt: at}
 	s.expiring[key] = true
 	s.mutex.Unlock()
 }
@@ -64,12 +64,6 @@ func (s *Store) Delete(key string) bool {
 	s.remove(key)
 	s.mutex.Unlock()
 	return found
-}
-
-// Expire makes the key expire after the given time.
-// It returns false if the key does not exist.
-func (s *Store) Expire(key string, after time.Duration) bool {
-	return s.ExpireAt(key, time.Now().Add(after))
 }
 
 // ExpireAt makes the key expire at the given moment.

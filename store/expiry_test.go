@@ -9,7 +9,7 @@ import (
 func TestDeleteExpiredKeys(t *testing.T) {
 	db := New()
 	for i := range 100 {
-		db.SetWithExpiry("temp"+strconv.Itoa(i), "value", time.Millisecond)
+		db.SetWithExpiry("temp"+strconv.Itoa(i), "value", time.Now().Add(time.Millisecond))
 	}
 	for i := range 50 {
 		db.Set("keep"+strconv.Itoa(i), "value")
@@ -29,7 +29,7 @@ func TestDeleteExpiredKeys(t *testing.T) {
 
 func TestDeleteExpiredSampleKeepsLiveKeys(t *testing.T) {
 	db := New()
-	db.SetWithExpiry("name", "kevin", time.Hour)
+	db.SetWithExpiry("name", "kevin", time.Now().Add(time.Hour))
 
 	checked, deleted := db.deleteExpiredSample()
 	if checked != 1 || deleted != 0 {
@@ -43,14 +43,14 @@ func TestDeleteExpiredSampleKeepsLiveKeys(t *testing.T) {
 func TestExpiringStaysInSync(t *testing.T) {
 	db := New()
 
-	db.SetWithExpiry("a", "1", time.Hour)
+	db.SetWithExpiry("a", "1", time.Now().Add(time.Hour))
 	db.Set("a", "2")
 	if db.expiring["a"] {
 		t.Error("Set did not remove the key from expiring")
 	}
 
 	db.Set("b", "1")
-	db.Expire("b", time.Hour)
+	db.ExpireAt("b", time.Now().Add(time.Hour))
 	if !db.expiring["b"] {
 		t.Error("Expire did not add the key to expiring")
 	}
@@ -59,7 +59,7 @@ func TestExpiringStaysInSync(t *testing.T) {
 		t.Error("Delete did not remove the key from expiring")
 	}
 
-	db.SetWithExpiry("c", "1", time.Millisecond)
+	db.SetWithExpiry("c", "1", time.Now().Add(time.Millisecond))
 	time.Sleep(5 * time.Millisecond)
 	db.Get("c")
 	if db.expiring["c"] {

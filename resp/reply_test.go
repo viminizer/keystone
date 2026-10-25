@@ -47,3 +47,11 @@ func TestInteger(t *testing.T) {
 		t.Errorf("Integer(2) = %q", got)
 	}
 }
+
+func TestCommand(t *testing.T) {
+	got := Command([]string{"SET", "name", "kevin"})
+	want := "*3\r\n$3\r\nSET\r\n$4\r\nname\r\n$5\r\nkevin\r\n"
+	if got != want {
+		t.Errorf("Command(...) = %q, want %q", got, want)
+	}
+}
