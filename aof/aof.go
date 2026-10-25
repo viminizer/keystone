@@ -17,10 +17,14 @@ import (
 // Log is an open append-only file.
 type Log struct {
 	path string
-	// mutex protects file, because Rewrite replaces it while RunSync
-	// and Append use it.
+	// mutex protects file, size and baseSize, because Rewrite changes them
+	// while RunSync, Append and Sizes use them.
 	mutex sync.Mutex
 	file  *os.File
+	// size is the size of the file now, in bytes.
+	size int64
+	// baseSize is the size after the last rewrite, or at Open.
+	baseSize int64
 }
 
 // Open opens the file for adding to its end. It creates the file if it
@@ -30,7 +34,13 @@ func Open(path string) (*Log, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Log{path: path, file: file}, nil
+	info, err := file.Stat()
+	if err != nil {
+		file.Close()
+		return nil, err
+	}
+	size := info.Size()
+	return &Log{path: path, file: file, size: size, baseSize: size}, nil
 }
 
 // Append writes one command to the end of the file. The operating system
@@ -39,8 +49,18 @@ func (l *Log) Append(command []string) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	_, err := l.file.WriteString(resp.Command(command))
+	written, err := l.file.WriteString(resp.Command(command))
+	l.size += int64(written)
 	return err
+}
+
+// Sizes returns the size of the file now, and its size after the last
+// rewrite (or at Open), both in bytes.
+func (l *Log) Sizes() (int64, int64) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	return l.size, l.baseSize
 }
 
 // RunSync puts the written commands on the disk once a second, so a
@@ -79,7 +99,7 @@ func (l *Log) Rewrite(commands [][]string) error {
 		return err
 	}
 
-	err = writeAndSync(temp, commands)
+	size, err := writeAndSync(temp, commands)
 	if err == nil {
 		err = os.Rename(tempPath, l.path)
 	}
@@ -93,6 +113,8 @@ func (l *Log) Rewrite(commands [][]string) error {
 	l.mutex.Lock()
 	old := l.file
 	l.file = temp
+	l.size = size
+	l.baseSize = size
 	l.mutex.Unlock()
 	old.Close()
 
@@ -108,17 +130,20 @@ func (l *Log) Rewrite(commands [][]string) error {
 }
 
 // writeAndSync writes the commands to the file and puts them on the disk.
-func writeAndSync(file *os.File, commands [][]string) error {
+// It returns the number of bytes written.
+func writeAndSync(file *os.File, commands [][]string) (int64, error) {
 	// A bufio.Writer collects many small writes in memory and sends them
 	// to the file in big pieces, which is much faster.
 	writer := bufio.NewWriter(file)
+	var size int64
 	for _, command := range commands {
-		writer.WriteString(resp.Command(command))
+		written, _ := writer.WriteString(resp.Command(command))
+		size += int64(written)
 	}
 	// If any write above failed, Flush returns that error.
 	err := writer.Flush()
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return file.Sync()
+	return size, file.Sync()
 }
