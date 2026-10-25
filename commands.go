@@ -22,10 +22,24 @@ func runCommand(command []string, db *store.Store) string {
 		return resp.SimpleString("PONG")
 
 	case "SET":
-		if len(command) != 3 {
+		if len(command) < 3 {
 			return wrongNumberOfArguments(command[0])
 		}
-		db.Set(command[1], command[2])
+		if len(command) == 3 {
+			db.Set(command[1], command[2])
+			return resp.SimpleString("OK")
+		}
+		if len(command) != 5 || strings.ToUpper(command[3]) != "EX" {
+			return resp.Error("ERR syntax error")
+		}
+		seconds, err := strconv.Atoi(command[4])
+		if err != nil {
+			return resp.Error("ERR value is not an integer or out of range")
+		}
+		if seconds <= 0 {
+			return resp.Error("ERR invalid expire time in 'set' command")
+		}
+		db.SetWithExpiry(command[1], command[2], time.Duration(seconds)*time.Second)
 		return resp.SimpleString("OK")
 
 	case "GET":
