@@ -1,5 +1,5 @@
-// Package aof writes every change to an append-only file, so the data
-// can be loaded again after a restart.
+// Package aof writes every change to an append-only file, and loads the
+// file again after a restart.
 package aof
 
 import (
