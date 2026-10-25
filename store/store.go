@@ -110,3 +110,27 @@ func (s *Store) remove(key string) {
 	delete(s.data, key)
 	delete(s.expiring, key)
 }
+
+// Item is one key with its value and expiry, as returned by Snapshot.
+type Item struct {
+	Key   string
+	Value string
+	// ExpiresAt is the zero time when the key never expires.
+	ExpiresAt time.Time
+}
+
+// Snapshot returns a copy of every key that has not expired.
+func (s *Store) Snapshot() []Item {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	now := time.Now()
+	items := []Item{}
+	for key, stored := range s.data {
+		if !stored.expiresAt.IsZero() && now.After(stored.expiresAt) {
+			continue
+		}
+		items = append(items, Item{Key: key, Value: stored.value, ExpiresAt: stored.expiresAt})
+	}
+	return items
+}

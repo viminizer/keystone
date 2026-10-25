@@ -139,3 +139,30 @@ func TestExpireAt(t *testing.T) {
 		t.Error("key with an expiry in the past still exists")
 	}
 }
+
+func TestSnapshot(t *testing.T) {
+	db := New()
+	db.Set("name", "kevin")
+	at := time.Now().Add(time.Hour)
+	db.SetWithExpiry("session", "abc", at)
+	db.SetWithExpiry("old", "x", time.Now().Add(-time.Second))
+
+	items := db.Snapshot()
+	if len(items) != 2 {
+		t.Fatalf("Snapshot returned %d items, want 2 (the expired key left out)", len(items))
+	}
+	for _, item := range items {
+		switch item.Key {
+		case "name":
+			if item.Value != "kevin" || !item.ExpiresAt.IsZero() {
+				t.Errorf("name = %+v", item)
+			}
+		case "session":
+			if item.Value != "abc" || !item.ExpiresAt.Equal(at) {
+				t.Errorf("session = %+v", item)
+			}
+		default:
+			t.Errorf("unexpected key %q", item.Key)
+		}
+	}
+}
