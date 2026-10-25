@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -94,7 +95,16 @@ func (l *Log) Rewrite(commands [][]string) error {
 	l.file = temp
 	l.mutex.Unlock()
 	old.Close()
-	return nil
+
+	// The rename changed the folder, not the file. The folder has to be
+	// synced too, or a power loss can undo the rename.
+	folder, err := os.Open(filepath.Dir(l.path))
+	if err != nil {
+		return err
+	}
+	err = folder.Sync()
+	folder.Close()
+	return err
 }
 
 // writeAndSync writes the commands to the file and puts them on the disk.
