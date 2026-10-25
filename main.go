@@ -21,6 +21,8 @@ func main() {
 	}
 
 	db := store.New()
+	go db.RunActiveExpiry()
+
 	for {
 		connection, err := listener.Accept()
 		if err != nil {
