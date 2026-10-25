@@ -77,6 +77,20 @@ func runCommand(command []string, db *store.Store) string {
 		}
 		return resp.Integer(0)
 
+	case "PEXPIREAT":
+		if len(command) != 3 {
+			return wrongNumberOfArguments(command[0])
+		}
+		// The time is in milliseconds since January 1, 1970 (Unix time).
+		milliseconds, err := strconv.ParseInt(command[2], 10, 64)
+		if err != nil {
+			return resp.Error("ERR value is not an integer or out of range")
+		}
+		if db.ExpireAt(command[1], time.UnixMilli(milliseconds)) {
+			return resp.Integer(1)
+		}
+		return resp.Integer(0)
+
 	case "TTL":
 		if len(command) != 2 {
 			return wrongNumberOfArguments(command[0])
