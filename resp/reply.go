@@ -26,3 +26,13 @@ func Null() string {
 func Integer(number int) string {
 	return ":" + strconv.Itoa(number) + "\r\n"
 }
+
+// Command returns a command as an array of bulk strings, the same format
+// ReadCommand reads. For example ["PING"] becomes "*1\r\n$4\r\nPING\r\n".
+func Command(parts []string) string {
+	text := "*" + strconv.Itoa(len(parts)) + "\r\n"
+	for _, part := range parts {
+		text += BulkString(part)
+	}
+	return text
+}
