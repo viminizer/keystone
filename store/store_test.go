@@ -120,3 +120,22 @@ func TestSetWithExpiry(t *testing.T) {
 		t.Error("key still exists after it expired")
 	}
 }
+
+func TestExpireAt(t *testing.T) {
+	db := New()
+	db.Set("name", "kevin")
+	at := time.Now().Add(time.Hour)
+
+	if !db.ExpireAt("name", at) {
+		t.Fatal("ExpireAt on an existing key returned false")
+	}
+	expiresAt, _ := db.ExpiresAt("name")
+	if !expiresAt.Equal(at) {
+		t.Errorf("ExpiresAt = %v, want %v", expiresAt, at)
+	}
+
+	db.ExpireAt("name", time.Now().Add(-time.Second))
+	if _, found := db.Get("name"); found {
+		t.Error("key with an expiry in the past still exists")
+	}
+}

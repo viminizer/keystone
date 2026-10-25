@@ -69,6 +69,12 @@ func (s *Store) Delete(key string) bool {
 // Expire makes the key expire after the given time.
 // It returns false if the key does not exist.
 func (s *Store) Expire(key string, after time.Duration) bool {
+	return s.ExpireAt(key, time.Now().Add(after))
+}
+
+// ExpireAt makes the key expire at the given moment.
+// It returns false if the key does not exist.
+func (s *Store) ExpireAt(key string, at time.Time) bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -76,7 +82,7 @@ func (s *Store) Expire(key string, after time.Duration) bool {
 	if !found {
 		return false
 	}
-	item.expiresAt = time.Now().Add(after)
+	item.expiresAt = at
 	s.data[key] = item
 	s.expiring[key] = true
 	return true

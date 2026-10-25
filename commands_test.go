@@ -1,7 +1,9 @@
 package main
 
 import (
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/viminizer/keystone/store"
 )
@@ -111,6 +113,34 @@ func TestSetWithEX(t *testing.T) {
 		{[]string{"SET", "name", "kevin", "EX", "ten"}, "-ERR value is not an integer or out of range\r\n"},
 		{[]string{"SET", "name", "kevin", "EX", "0"}, "-ERR invalid expire time in 'set' command\r\n"},
 		{[]string{"SET", "name", "kevin", "EX", "-5"}, "-ERR invalid expire time in 'set' command\r\n"},
+	}
+
+	// The cases run in order on the same store, so each one sees the one before.
+	for _, test := range tests {
+		got := runCommand(test.command, db)
+		if got != test.want {
+			t.Errorf("runCommand(%q) = %q, want %q", test.command, got, test.want)
+		}
+	}
+}
+
+func TestPexpireat(t *testing.T) {
+	db := store.New()
+	runCommand([]string{"SET", "name", "kevin"}, db)
+	inTenSeconds := strconv.FormatInt(time.Now().Add(10*time.Second).UnixMilli(), 10)
+	aSecondAgo := strconv.FormatInt(time.Now().Add(-time.Second).UnixMilli(), 10)
+
+	tests := []struct {
+		command []string
+		want    string
+	}{
+		{[]string{"PEXPIREAT", "name", inTenSeconds}, ":1\r\n"},
+		{[]string{"TTL", "name"}, ":10\r\n"},
+		{[]string{"PEXPIREAT", "missing", inTenSeconds}, ":0\r\n"},
+		{[]string{"PEXPIREAT", "name", "soon"}, "-ERR value is not an integer or out of range\r\n"},
+		{[]string{"PEXPIREAT", "name"}, "-ERR wrong number of arguments for 'pexpireat' command\r\n"},
+		{[]string{"PEXPIREAT", "name", aSecondAgo}, ":1\r\n"},
+		{[]string{"GET", "name"}, "$-1\r\n"},
 	}
 
 	// The cases run in order on the same store, so each one sees the one before.
