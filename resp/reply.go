@@ -1,6 +1,9 @@
 package resp
 
-import "strconv"
+import (
+	"strconv"
+	"strings"
+)
 
 // SimpleString returns a RESP simple string, like "+PONG\r\n".
 func SimpleString(text string) string {
@@ -30,9 +33,10 @@ func Integer(number int) string {
 // Command returns a command as an array of bulk strings, the same format
 // ReadCommand reads. For example ["PING"] becomes "*1\r\n$4\r\nPING\r\n".
 func Command(parts []string) string {
-	text := "*" + strconv.Itoa(len(parts)) + "\r\n"
+	var builder strings.Builder
+	builder.WriteString("*" + strconv.Itoa(len(parts)) + "\r\n")
 	for _, part := range parts {
-		text += BulkString(part)
+		builder.WriteString(BulkString(part))
 	}
-	return text
+	return builder.String()
 }
