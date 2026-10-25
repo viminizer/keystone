@@ -1,7 +1,9 @@
 package main
 
 import (
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/viminizer/keystone/resp"
 	"github.com/viminizer/keystone/store"
@@ -47,6 +49,33 @@ func runCommand(command []string, db *store.Store) string {
 			}
 		}
 		return resp.Integer(deleted)
+
+	case "EXPIRE":
+		if len(command) != 3 {
+			return wrongNumberOfArguments(command[0])
+		}
+		seconds, err := strconv.Atoi(command[2])
+		if err != nil {
+			return resp.Error("ERR value is not an integer or out of range")
+		}
+		if db.Expire(command[1], time.Duration(seconds)*time.Second) {
+			return resp.Integer(1)
+		}
+		return resp.Integer(0)
+
+	case "TTL":
+		if len(command) != 2 {
+			return wrongNumberOfArguments(command[0])
+		}
+		expiresAt, found := db.ExpiresAt(command[1])
+		if !found {
+			return resp.Integer(-2)
+		}
+		if expiresAt.IsZero() {
+			return resp.Integer(-1)
+		}
+		secondsLeft := time.Until(expiresAt).Round(time.Second).Seconds()
+		return resp.Integer(int(secondsLeft))
 
 	default:
 		return resp.Error("ERR unknown command '" + command[0] + "'")

@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestSetAndGet(t *testing.T) {
@@ -71,5 +72,38 @@ func TestDelete(t *testing.T) {
 	}
 	if db.Delete("name") {
 		t.Error("Delete on a missing key returned true")
+	}
+}
+
+func TestExpiredKeyIsGone(t *testing.T) {
+	db := New()
+	db.Set("name", "kevin")
+	db.Expire("name", 10*time.Millisecond)
+
+	if _, found := db.Get("name"); !found {
+		t.Fatal("key is gone before it expired")
+	}
+	time.Sleep(20 * time.Millisecond)
+	if _, found := db.Get("name"); found {
+		t.Error("key still exists after it expired")
+	}
+}
+
+func TestExpireMissingKey(t *testing.T) {
+	db := New()
+	if db.Expire("name", time.Second) {
+		t.Error("Expire on a missing key returned true")
+	}
+}
+
+func TestSetRemovesExpiry(t *testing.T) {
+	db := New()
+	db.Set("name", "kevin")
+	db.Expire("name", time.Second)
+	db.Set("name", "alex")
+
+	expiresAt, _ := db.ExpiresAt("name")
+	if !expiresAt.IsZero() {
+		t.Errorf("ExpiresAt = %v, want no expiry", expiresAt)
 	}
 }
