@@ -69,19 +69,28 @@ func (l *Log) Sizes() (int64, int64) {
 func (l *Log) RunSync() {
 	ticker := time.NewTicker(time.Second)
 	for range ticker.C {
-		// The sync is slow, so it happens outside the lock. Then Append
-		// does not have to wait for it.
-		l.mutex.Lock()
-		file := l.file
-		l.mutex.Unlock()
-
-		err := file.Sync()
-		// Rewrite may have closed this file in the meantime. The new
-		// file is synced by Rewrite, so that error can be ignored.
-		if err != nil && !errors.Is(err, os.ErrClosed) {
+		err := l.Sync()
+		if err != nil {
 			fmt.Println("could not sync the append-only file:", err)
 		}
 	}
+}
+
+// Sync puts the written commands on the disk.
+func (l *Log) Sync() error {
+	// The sync is slow, so it happens outside the lock. Then Append does
+	// not have to wait for it.
+	l.mutex.Lock()
+	file := l.file
+	l.mutex.Unlock()
+
+	err := file.Sync()
+	// Rewrite may have closed this file in the meantime. The new file is
+	// synced by Rewrite, so that error can be ignored.
+	if errors.Is(err, os.ErrClosed) {
+		return nil
+	}
+	return err
 }
 
 // Rewrite replaces the whole file with the given commands.
