@@ -62,3 +62,32 @@ func TestDel(t *testing.T) {
 		t.Fatalf("DEL with no key = %q", got)
 	}
 }
+
+func TestExpireAndTTL(t *testing.T) {
+	db := store.New()
+	runCommand([]string{"SET", "name", "kevin"}, db)
+
+	tests := []struct {
+		command []string
+		want    string
+	}{
+		{[]string{"TTL", "name"}, ":-1\r\n"},
+		{[]string{"TTL", "missing"}, ":-2\r\n"},
+		{[]string{"EXPIRE", "name", "10"}, ":1\r\n"},
+		{[]string{"TTL", "name"}, ":10\r\n"},
+		{[]string{"EXPIRE", "missing", "10"}, ":0\r\n"},
+		{[]string{"EXPIRE", "name", "ten"}, "-ERR value is not an integer or out of range\r\n"},
+		{[]string{"EXPIRE", "name"}, "-ERR wrong number of arguments for 'expire' command\r\n"},
+		{[]string{"EXPIRE", "name", "-1"}, ":1\r\n"},
+		{[]string{"GET", "name"}, "$-1\r\n"},
+		{[]string{"TTL", "name"}, ":-2\r\n"},
+	}
+
+	// The cases run in order on the same store, so each one sees the one before.
+	for _, test := range tests {
+		got := runCommand(test.command, db)
+		if got != test.want {
+			t.Errorf("runCommand(%q) = %q, want %q", test.command, got, test.want)
+		}
+	}
+}
