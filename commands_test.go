@@ -278,3 +278,59 @@ func TestRestartDropsExpiredKeys(t *testing.T) {
 		t.Errorf("GET name after restart = %q, want the key to be expired", got)
 	}
 }
+
+func TestRewriteLog(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "appendonly.aof")
+	aofLog, _ := aof.Open(path)
+	db := store.New()
+	runCommand([]string{"SET", "name", "kevin"}, db, aofLog)
+	runCommand([]string{"SET", "name", "alex"}, db, aofLog)
+	runCommand([]string{"SET", "name", "sam"}, db, aofLog)
+	runCommand([]string{"SET", "temp", "x"}, db, aofLog)
+	runCommand([]string{"DEL", "temp"}, db, aofLog)
+	runCommand([]string{"SET", "session", "abc", "EX", "100"}, db, aofLog)
+
+	rewriteLog(db, aofLog)
+	// A write after the rewrite must go into the new file.
+	runCommand([]string{"SET", "after", "yes"}, db, aofLog)
+
+	var logged [][]string
+	aof.Load(path, func(command []string) {
+		logged = append(logged, command)
+	})
+	if len(logged) != 4 {
+		t.Fatalf("logged %q, want 4 commands", logged)
+	}
+
+	after := store.New()
+	for _, command := range logged {
+		runCommand(command, after, nil)
+	}
+	tests := []struct {
+		command []string
+		want    string
+	}{
+		{[]string{"GET", "name"}, "$3\r\nsam\r\n"},
+		{[]string{"GET", "temp"}, "$-1\r\n"},
+		{[]string{"GET", "session"}, "$3\r\nabc\r\n"},
+		{[]string{"TTL", "session"}, ":100\r\n"},
+		{[]string{"GET", "after"}, "$3\r\nyes\r\n"},
+	}
+	for _, test := range tests {
+		got := runCommand(test.command, after, nil)
+		if got != test.want {
+			t.Errorf("after rewrite and load, runCommand(%q) = %q, want %q", test.command, got, test.want)
+		}
+	}
+}
+
+func TestBgrewriteaofOneAtATime(t *testing.T) {
+	// Act as if a rewrite is already running.
+	rewriting.Store(true)
+	defer rewriting.Store(false)
+
+	got := runCommand([]string{"BGREWRITEAOF"}, store.New(), nil)
+	if got != "-ERR Background append only file rewriting already in progress\r\n" {
+		t.Errorf("BGREWRITEAOF during a rewrite = %q", got)
+	}
+}
