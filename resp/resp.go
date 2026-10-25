@@ -9,6 +9,11 @@ import (
 	"strings"
 )
 
+// maxBulkLength is the biggest bulk string we accept: 512 MB, the same as
+// Redis. The memory for a value is reserved before the value arrives, so
+// without a limit one client could make the server reserve all memory.
+const maxBulkLength = 512 * 1024 * 1024
+
 // ReadCommand reads one command, sent as an array of bulk strings.
 // For example "*1\r\n$4\r\nPING\r\n" becomes ["PING"].
 func ReadCommand(reader *bufio.Reader) ([]string, error) {
@@ -36,6 +41,9 @@ func ReadCommand(reader *bufio.Reader) ([]string, error) {
 		length, err := strconv.Atoi(line[1:])
 		if err != nil || length < 0 {
 			return nil, fmt.Errorf("invalid bulk string length %q", line)
+		}
+		if length > maxBulkLength {
+			return nil, fmt.Errorf("bulk string length %d is too big", length)
 		}
 
 		// The value is followed by "\r\n", so read 2 more bytes.
