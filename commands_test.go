@@ -91,3 +91,33 @@ func TestExpireAndTTL(t *testing.T) {
 		}
 	}
 }
+
+func TestSetWithEX(t *testing.T) {
+	db := store.New()
+
+	tests := []struct {
+		command []string
+		want    string
+	}{
+		{[]string{"SET", "name", "kevin", "EX", "10"}, "+OK\r\n"},
+		{[]string{"TTL", "name"}, ":10\r\n"},
+		{[]string{"GET", "name"}, "$5\r\nkevin\r\n"},
+		{[]string{"SET", "name", "alex", "ex", "20"}, "+OK\r\n"},
+		{[]string{"TTL", "name"}, ":20\r\n"},
+		{[]string{"SET", "name", "kevin"}, "+OK\r\n"},
+		{[]string{"TTL", "name"}, ":-1\r\n"},
+		{[]string{"SET", "name", "kevin", "EX"}, "-ERR syntax error\r\n"},
+		{[]string{"SET", "name", "kevin", "FOO", "10"}, "-ERR syntax error\r\n"},
+		{[]string{"SET", "name", "kevin", "EX", "ten"}, "-ERR value is not an integer or out of range\r\n"},
+		{[]string{"SET", "name", "kevin", "EX", "0"}, "-ERR invalid expire time in 'set' command\r\n"},
+		{[]string{"SET", "name", "kevin", "EX", "-5"}, "-ERR invalid expire time in 'set' command\r\n"},
+	}
+
+	// The cases run in order on the same store, so each one sees the one before.
+	for _, test := range tests {
+		got := runCommand(test.command, db)
+		if got != test.want {
+			t.Errorf("runCommand(%q) = %q, want %q", test.command, got, test.want)
+		}
+	}
+}

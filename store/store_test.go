@@ -107,3 +107,16 @@ func TestSetRemovesExpiry(t *testing.T) {
 		t.Errorf("ExpiresAt = %v, want no expiry", expiresAt)
 	}
 }
+
+func TestSetWithExpiry(t *testing.T) {
+	db := New()
+	db.SetWithExpiry("name", "kevin", 10*time.Millisecond)
+
+	if value, found := db.Get("name"); !found || value != "kevin" {
+		t.Fatalf("Get(\"name\") = %q, %v", value, found)
+	}
+	time.Sleep(20 * time.Millisecond)
+	if _, found := db.Get("name"); found {
+		t.Error("key still exists after it expired")
+	}
+}
