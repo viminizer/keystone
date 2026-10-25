@@ -14,21 +14,28 @@ type entry struct {
 }
 
 // Store is safe to use from many goroutines at the same time.
-// The mutex makes sure only one of them uses the map at a time.
+// The mutex makes sure only one of them uses the maps at a time.
 type Store struct {
 	mutex sync.Mutex
 	data  map[string]entry
+	// expiring holds only the keys that have an expiry, so active
+	// expiry can find them without looking at every key.
+	expiring map[string]bool
 }
 
 // New returns an empty store.
 func New() *Store {
-	return &Store{data: map[string]entry{}}
+	return &Store{
+		data:     map[string]entry{},
+		expiring: map[string]bool{},
+	}
 }
 
 // Set saves the value under the key. An old value and its expiry are replaced.
 func (s *Store) Set(key string, value string) {
 	s.mutex.Lock()
 	s.data[key] = entry{value: value}
+	delete(s.expiring, key)
 	s.mutex.Unlock()
 }
 
@@ -38,6 +45,7 @@ func (s *Store) Set(key string, value string) {
 func (s *Store) SetWithExpiry(key string, value string, after time.Duration) {
 	s.mutex.Lock()
 	s.data[key] = entry{value: value, expiresAt: time.Now().Add(after)}
+	s.expiring[key] = true
 	s.mutex.Unlock()
 }
 
@@ -53,7 +61,7 @@ func (s *Store) Get(key string) (string, bool) {
 func (s *Store) Delete(key string) bool {
 	s.mutex.Lock()
 	_, found := s.lookup(key)
-	delete(s.data, key)
+	s.remove(key)
 	s.mutex.Unlock()
 	return found
 }
@@ -70,6 +78,7 @@ func (s *Store) Expire(key string, after time.Duration) bool {
 	}
 	item.expiresAt = time.Now().Add(after)
 	s.data[key] = item
+	s.expiring[key] = true
 	return true
 }
 
@@ -90,8 +99,14 @@ func (s *Store) lookup(key string) (entry, bool) {
 		return entry{}, false
 	}
 	if !item.expiresAt.IsZero() && time.Now().After(item.expiresAt) {
-		delete(s.data, key)
+		s.remove(key)
 		return entry{}, false
 	}
 	return item, true
+}
+
+// remove deletes the key from both maps. The mutex must be locked by the caller.
+func (s *Store) remove(key string) {
+	delete(s.data, key)
+	delete(s.expiring, key)
 }
