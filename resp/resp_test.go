@@ -77,3 +77,13 @@ func TestReadCommandErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestReadCommandBulkStringTooBig(t *testing.T) {
+	// 536870913 is one byte more than 512 MB.
+	input := "*1\r\n$536870913\r\n"
+	reader := bufio.NewReader(strings.NewReader(input))
+	_, err := ReadCommand(reader)
+	if err == nil || !strings.Contains(err.Error(), "too big") {
+		t.Errorf("ReadCommand(%q) returned %v, want a too big error", input, err)
+	}
+}
