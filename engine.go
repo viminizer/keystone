@@ -31,6 +31,30 @@ func NewEngine(db *store.Store, aofLog *aof.Log) *Engine {
 	return &Engine{db: db, aofLog: aofLog}
 }
 
+// OpenEngine loads the saved changes from the append-only file into a new
+// store, opens the file for new changes, and returns an engine for both.
+func OpenEngine(aofPath string) (*Engine, error) {
+	db := store.New()
+
+	// The saved changes are loaded before any client can connect, so no
+	// client sees the data half loaded.
+	loaded, err := aof.Load(aofPath, func(command []string) {
+		replayCommand(db, command)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not load the append-only file: %w", err)
+	}
+	fmt.Printf("loaded %d commands from %s\n", loaded, aofPath)
+
+	// The file is opened after loading, because loading can cut a broken
+	// end off the file, and Open reads the size of the file.
+	aofLog, err := aof.Open(aofPath)
+	if err != nil {
+		return nil, fmt.Errorf("could not open the append-only file: %w", err)
+	}
+	return NewEngine(db, aofLog), nil
+}
+
 func (e *Engine) Set(key string, value string) {
 	e.writeMutex.Lock()
 	defer e.writeMutex.Unlock()
