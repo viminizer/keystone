@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/viminizer/keystone/aof"
@@ -14,25 +15,30 @@ import (
 	"github.com/viminizer/keystone/store"
 )
 
-const aofPath = "appendonly.aof"
-
 func main() {
 	fmt.Println("keystone is starting")
+
+	settings, err := loadConfig(os.Args[1:], os.Getenv)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	fmt.Printf("port %d, append-only file %s\n", settings.port, settings.aofPath)
 
 	db := store.New()
 
 	// Load the saved changes before any client can connect, so no client
 	// sees the data half loaded. They are not written to the log again.
-	loaded, err := aof.Load(aofPath, func(command []string) {
+	loaded, err := aof.Load(settings.aofPath, func(command []string) {
 		runCommand(command, db, nil)
 	})
 	if err != nil {
 		fmt.Println("could not load the append-only file:", err)
 		os.Exit(1)
 	}
-	fmt.Printf("loaded %d commands from %s\n", loaded, aofPath)
+	fmt.Printf("loaded %d commands from %s\n", loaded, settings.aofPath)
 
-	aofLog, err := aof.Open(aofPath)
+	aofLog, err := aof.Open(settings.aofPath)
 	if err != nil {
 		fmt.Println("could not open the append-only file:", err)
 		os.Exit(1)
@@ -42,9 +48,9 @@ func main() {
 	go runAutoRewrite(db, aofLog)
 	go db.RunActiveExpiry()
 
-	listener, err := net.Listen("tcp", ":6380")
+	listener, err := net.Listen("tcp", ":"+strconv.Itoa(settings.port))
 	if err != nil {
-		fmt.Println("could not listen on port 6380:", err)
+		fmt.Printf("could not listen on port %d: %s\n", settings.port, err)
 		os.Exit(1)
 	}
 
