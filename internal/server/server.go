@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"os"
 	"strconv"
 
 	"github.com/viminizer/keystone/internal/executor"
@@ -22,6 +23,14 @@ type Server struct {
 
 func New(port int, commandExecutor *executor.Executor) *Server {
 	return &Server{port: port, executor: commandExecutor}
+}
+
+// MustListenAndServe works like ListenAndServe, but if the port could not be
+// opened, it logs the error and exits.
+func (s *Server) MustListenAndServe() {
+	err := s.ListenAndServe()
+	slog.Error("could not start the server", "error", err)
+	os.Exit(1)
 }
 
 // ListenAndServe opens the port and serves every client in its own

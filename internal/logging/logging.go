@@ -10,7 +10,8 @@ import (
 )
 
 // Setup makes every slog call in keystone write to stderr, in the format and
-// from the level in the settings.
+// from the level in the settings. Then it logs that keystone is starting,
+// with the settings.
 func Setup(settings *config.Config) {
 	options := &slog.HandlerOptions{Level: settings.LogLevel}
 	var output slog.Handler
@@ -20,6 +21,12 @@ func Setup(settings *config.Config) {
 		output = slog.NewTextHandler(os.Stderr, options)
 	}
 	slog.SetDefault(slog.New(&handler{next: output}))
+
+	slog.Info("keystone is starting",
+		"port", settings.Port,
+		"aof_path", settings.AOFPath,
+		"log_level", settings.LogLevel.String(),
+		"log_format", settings.LogFormat)
 }
 
 // handler wraps the text or json handler. Every log line in keystone goes
