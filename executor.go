@@ -16,24 +16,32 @@ type Handler struct {
 // Executor finds the handler for a command and runs it.
 type Executor struct {
 	engine *Engine
-	// commands is only read after NewExecutor, so it needs no lock.
+	// commands is only changed by NewExecutor, before any client connects.
+	// After that it is only read, so it needs no lock.
 	commands map[string]Handler
 }
 
 func NewExecutor(engine *Engine) *Executor {
-	return &Executor{
-		engine: engine,
-		commands: map[string]Handler{
-			"PING":         {Run: handlePing},
-			"SET":          {Run: handleSet},
-			"GET":          {Run: handleGet},
-			"DEL":          {Run: handleDel},
-			"EXPIRE":       {Run: handleExpire},
-			"PEXPIREAT":    {Run: handlePexpireat},
-			"TTL":          {Run: handleTTL},
-			"BGREWRITEAOF": {Run: handleBgrewriteaof},
-		},
+	executor := &Executor{
+		engine:   engine,
+		commands: map[string]Handler{},
 	}
+
+	executor.Register("PING", handlePing)
+	executor.Register("SET", handleSet)
+	executor.Register("GET", handleGet)
+	executor.Register("DEL", handleDel)
+	executor.Register("EXPIRE", handleExpire)
+	executor.Register("PEXPIREAT", handlePexpireat)
+	executor.Register("TTL", handleTTL)
+	executor.Register("BGREWRITEAOF", handleBgrewriteaof)
+
+	return executor
+}
+
+// Register adds the handler for one command. The name must be in capitals.
+func (e *Executor) Register(name string, run func(engine *Engine, args []string) string) {
+	e.commands[name] = Handler{Run: run}
 }
 
 // Execute runs one command and returns the reply to send.
