@@ -3,7 +3,7 @@
 package workers
 
 import (
-	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -36,14 +36,14 @@ func (w *Workers) runStopOnSignal() {
 	stopSignals := make(chan os.Signal, 1)
 	signal.Notify(stopSignals, syscall.SIGINT, syscall.SIGTERM)
 	received := <-stopSignals
-	fmt.Printf("received %s, stopping\n", received)
+	slog.Info("received a signal, stopping", "signal", received.String())
 
 	err := w.db.Shutdown()
 	if err != nil {
-		fmt.Println("could not sync the append-only file:", err)
+		slog.Error("could not sync the append-only file", "error", err)
 		os.Exit(1)
 	}
-	fmt.Println("keystone stopped")
+	slog.Info("keystone stopped")
 	os.Exit(0)
 }
 
@@ -54,7 +54,7 @@ func (w *Workers) runSync() {
 	for range ticker.C {
 		err := w.db.SyncLog()
 		if err != nil {
-			fmt.Println("could not sync the append-only file:", err)
+			slog.Error("could not sync the append-only file", "error", err)
 		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"strconv"
 
@@ -34,7 +35,7 @@ func (s *Server) ListenAndServe() error {
 	for {
 		connection, err := listener.Accept()
 		if err != nil {
-			fmt.Println("could not accept a connection:", err)
+			slog.Error("could not accept a connection", "error", err)
 			continue
 		}
 
@@ -45,7 +46,7 @@ func (s *Server) ListenAndServe() error {
 // handleConnection runs the commands of one client until it disconnects.
 func (s *Server) handleConnection(connection net.Conn) {
 	address := connection.RemoteAddr().String()
-	fmt.Println("client connected from", address)
+	slog.Info("client connected", "client", address)
 
 	reader := bufio.NewReader(connection)
 	for {
@@ -54,11 +55,11 @@ func (s *Server) handleConnection(connection net.Conn) {
 			break
 		}
 		if err != nil {
-			fmt.Printf("could not read from %s: %s\n", address, err)
+			slog.Error("could not read from the client", "client", address, "error", err)
 			break
 		}
 
-		fmt.Printf("received %q from %s\n", command, address)
+		slog.Debug("received a command", "client", address, "command", command)
 
 		reply := s.executor.Execute(command)
 		if reply == "" {
@@ -66,7 +67,7 @@ func (s *Server) handleConnection(connection net.Conn) {
 		}
 		_, err = connection.Write([]byte(reply))
 		if err != nil {
-			fmt.Printf("could not write to %s: %s\n", address, err)
+			slog.Error("could not write to the client", "client", address, "error", err)
 			break
 		}
 	}
