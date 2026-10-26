@@ -3,7 +3,7 @@ package main
 import (
 	"strings"
 
-	"github.com/viminizer/keystone/resp"
+	"github.com/viminizer/keystone/internal/resp"
 )
 
 // Handler runs one command.

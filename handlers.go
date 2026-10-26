@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/viminizer/keystone/resp"
+	"github.com/viminizer/keystone/internal/resp"
 )
 
 func handlePing(engine *Engine, args []string) string {

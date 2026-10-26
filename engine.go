@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/viminizer/keystone/aof"
-	"github.com/viminizer/keystone/store"
+	"github.com/viminizer/keystone/internal/aof"
+	"github.com/viminizer/keystone/internal/store"
 )
 
 // Engine runs the database operations. It changes the store and writes each
