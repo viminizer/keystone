@@ -62,14 +62,14 @@ func (e *Executor) Execute(command []string) string {
 
 	name := strings.ToUpper(command[0])
 	start := time.Now()
-	reply := e.run(name, command)
+	reply := e.exec(name, command)
 	// Error replies in RESP start with "-".
 	e.metrics.Record(name, time.Since(start), strings.HasPrefix(reply, "-"))
 	return reply
 }
 
-// run finds the handler for the command and runs it.
-func (e *Executor) run(name string, command []string) string {
+// exec finds the handler for the command and runs it.
+func (e *Executor) exec(name string, command []string) string {
 	handler, found := e.commands[name]
 	if !found {
 		return resp.Error("ERR unknown command '" + command[0] + "'")
