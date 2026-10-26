@@ -1,4 +1,5 @@
-package main
+// Package server accepts clients over TCP and answers their commands.
+package server
 
 import (
 	"bufio"
@@ -7,6 +8,7 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/viminizer/keystone/internal/executor"
 	"github.com/viminizer/keystone/internal/resp"
 )
 
@@ -14,11 +16,11 @@ import (
 // replies back.
 type Server struct {
 	port     int
-	executor *Executor
+	executor *executor.Executor
 }
 
-func NewServer(port int, executor *Executor) *Server {
-	return &Server{port: port, executor: executor}
+func New(port int, commandExecutor *executor.Executor) *Server {
+	return &Server{port: port, executor: commandExecutor}
 }
 
 // ListenAndServe opens the port and serves every client in its own

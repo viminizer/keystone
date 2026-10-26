@@ -1,8 +1,8 @@
-package main
+package config
 
 import "testing"
 
-func TestLoadConfig(t *testing.T) {
+func TestLoad(t *testing.T) {
 	tests := []struct {
 		name string
 		args []string
@@ -11,28 +11,28 @@ func TestLoadConfig(t *testing.T) {
 	}{
 		{
 			name: "defaults",
-			want: &Config{port: 6380, aofPath: "appendonly.aof"},
+			want: &Config{Port: 6380, AOFPath: "appendonly.aof"},
 		},
 		{
 			name: "environment variables",
 			env:  map[string]string{"KEYSTONE_PORT": "7000", "KEYSTONE_AOF_PATH": "/data/keystone.aof"},
-			want: &Config{port: 7000, aofPath: "/data/keystone.aof"},
+			want: &Config{Port: 7000, AOFPath: "/data/keystone.aof"},
 		},
 		{
 			name: "flags",
 			args: []string{"--port", "8000", "--aof-path", "other.aof"},
-			want: &Config{port: 8000, aofPath: "other.aof"},
+			want: &Config{Port: 8000, AOFPath: "other.aof"},
 		},
 		{
 			name: "a flag wins over an environment variable",
 			args: []string{"--port", "8000"},
 			env:  map[string]string{"KEYSTONE_PORT": "7000"},
-			want: &Config{port: 8000, aofPath: "appendonly.aof"},
+			want: &Config{Port: 8000, AOFPath: "appendonly.aof"},
 		},
 	}
 
 	for _, test := range tests {
-		got, err := LoadConfig(test.args, fakeGetenv(test.env))
+		got, err := Load(test.args, fakeGetenv(test.env))
 		if err != nil {
 			t.Errorf("%s: got error %v", test.name, err)
 			continue
@@ -43,15 +43,15 @@ func TestLoadConfig(t *testing.T) {
 	}
 }
 
-func TestLoadConfigBadPort(t *testing.T) {
+func TestLoadBadPort(t *testing.T) {
 	ports := []string{"abc", "0", "-1", "65536"}
 
 	for _, port := range ports {
-		_, err := LoadConfig([]string{"--port", port}, fakeGetenv(nil))
+		_, err := Load([]string{"--port", port}, fakeGetenv(nil))
 		if err == nil {
 			t.Errorf("port %q: got no error", port)
 		}
-		_, err = LoadConfig(nil, fakeGetenv(map[string]string{"KEYSTONE_PORT": port}))
+		_, err = Load(nil, fakeGetenv(map[string]string{"KEYSTONE_PORT": port}))
 		if err == nil {
 			t.Errorf("KEYSTONE_PORT=%q: got no error", port)
 		}

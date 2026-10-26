@@ -1,4 +1,6 @@
-package main
+// Package workers runs the background jobs: syncing the log, deleting
+// expired keys, rewriting the log and stopping on a signal.
+package workers
 
 import (
 	"fmt"
@@ -6,16 +8,18 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/viminizer/keystone/internal/engine"
 )
 
 // Workers run in the background, each in its own goroutine. They decide
 // when to do something, and the engine does it.
 type Workers struct {
-	engine *Engine
+	db *engine.Engine
 }
 
-func NewWorkers(engine *Engine) *Workers {
-	return &Workers{engine: engine}
+func New(db *engine.Engine) *Workers {
+	return &Workers{db: db}
 }
 
 // Start starts every worker in its own goroutine, and returns right away.
@@ -34,7 +38,7 @@ func (w *Workers) runStopOnSignal() {
 	received := <-stopSignals
 	fmt.Printf("received %s, stopping\n", received)
 
-	err := w.engine.Shutdown()
+	err := w.db.Shutdown()
 	if err != nil {
 		fmt.Println("could not sync the append-only file:", err)
 		os.Exit(1)
@@ -48,7 +52,7 @@ func (w *Workers) runStopOnSignal() {
 func (w *Workers) runSync() {
 	ticker := time.NewTicker(time.Second)
 	for range ticker.C {
-		err := w.engine.SyncLog()
+		err := w.db.SyncLog()
 		if err != nil {
 			fmt.Println("could not sync the append-only file:", err)
 		}
@@ -60,7 +64,7 @@ func (w *Workers) runSync() {
 func (w *Workers) runExpiry() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	for range ticker.C {
-		w.engine.DeleteExpiredKeys()
+		w.db.DeleteExpiredKeys()
 	}
 }
 
@@ -69,6 +73,6 @@ func (w *Workers) runExpiry() {
 func (w *Workers) runRewrite() {
 	ticker := time.NewTicker(time.Second)
 	for range ticker.C {
-		w.engine.RewriteIfTooBig()
+		w.db.RewriteIfTooBig()
 	}
 }

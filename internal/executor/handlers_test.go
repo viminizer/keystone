@@ -1,4 +1,4 @@
-package main
+package executor
 
 import (
 	"bufio"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/viminizer/keystone/internal/aof"
+	"github.com/viminizer/keystone/internal/engine"
 	"github.com/viminizer/keystone/internal/resp"
 	"github.com/viminizer/keystone/internal/store"
 )
@@ -264,84 +265,6 @@ func TestRestartDropsExpiredKeys(t *testing.T) {
 	}
 }
 
-func TestReplayCommand(t *testing.T) {
-	db := store.New()
-	commands := [][]string{
-		{"SET", "a", "1"},
-		{"SET", "b", "2"},
-		{"set", "c", "3"},
-		// Older logs can have the name as the client sent it.
-		{"del", "b"},
-		// These are skipped, and must not crash.
-		{},
-		{"SET", "d"},
-		{"PEXPIREAT", "a"},
-		{"PEXPIREAT", "a", "soon"},
-		{"PING"},
-	}
-	for _, command := range commands {
-		replayCommand(db, command)
-	}
-
-	for key, want := range map[string]bool{"a": true, "b": false, "c": true, "d": false} {
-		_, found := db.Get(key)
-		if found != want {
-			t.Errorf("key %q found = %v, want %v", key, found, want)
-		}
-	}
-	if expiresAt, _ := db.ExpiresAt("a"); !expiresAt.IsZero() {
-		t.Errorf("key a expires at %v, want no expiry", expiresAt)
-	}
-}
-
-func TestRewrite(t *testing.T) {
-	executor, path := newTestExecutor(t)
-	executor.Execute([]string{"SET", "name", "kevin"})
-	executor.Execute([]string{"SET", "name", "alex"})
-	executor.Execute([]string{"SET", "name", "sam"})
-	executor.Execute([]string{"SET", "temp", "x"})
-	executor.Execute([]string{"DEL", "temp"})
-	executor.Execute([]string{"SET", "session", "abc", "EX", "100"})
-
-	executor.engine.rewrite()
-	// A write after the rewrite must go into the new file.
-	executor.Execute([]string{"SET", "after", "yes"})
-
-	logged, _ := aof.Load(path, func(command []string) {})
-	if logged != 4 {
-		t.Fatalf("logged %d commands, want 4", logged)
-	}
-
-	after := restart(t, path)
-	tests := []struct {
-		command []string
-		want    string
-	}{
-		{[]string{"GET", "name"}, "$3\r\nsam\r\n"},
-		{[]string{"GET", "temp"}, "$-1\r\n"},
-		{[]string{"GET", "session"}, "$3\r\nabc\r\n"},
-		{[]string{"TTL", "session"}, ":100\r\n"},
-		{[]string{"GET", "after"}, "$3\r\nyes\r\n"},
-	}
-	for _, test := range tests {
-		got := after.Execute(test.command)
-		if got != test.want {
-			t.Errorf("after rewrite and load, Execute(%q) = %q, want %q", test.command, got, test.want)
-		}
-	}
-}
-
-func TestBgrewriteaofOneAtATime(t *testing.T) {
-	executor, _ := newTestExecutor(t)
-	// Act as if a rewrite is already running.
-	executor.engine.rewriting.Store(true)
-
-	got := executor.Execute([]string{"BGREWRITEAOF"})
-	if got != "-ERR Background append only file rewriting already in progress\r\n" {
-		t.Errorf("BGREWRITEAOF during a rewrite = %q", got)
-	}
-}
-
 // newTestExecutor returns an executor with an empty store and a new log in
 // a temporary folder, and the path of that log.
 func newTestExecutor(t *testing.T) (*Executor, string) {
@@ -350,19 +273,15 @@ func newTestExecutor(t *testing.T) (*Executor, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewExecutor(NewEngine(store.New(), aofLog)), path
+	return New(engine.New(store.New(), aofLog)), path
 }
 
-// restart loads the log at path into a new, empty store, like keystone does
-// at start, and returns an executor for that store.
+// restart opens the log at path the same way keystone does at start, and
+// returns an executor for it.
 func restart(t *testing.T, path string) *Executor {
-	db := store.New()
-	aof.Load(path, func(command []string) {
-		replayCommand(db, command)
-	})
-	aofLog, err := aof.Open(filepath.Join(t.TempDir(), "appendonly.aof"))
+	db, err := engine.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewExecutor(NewEngine(db, aofLog))
+	return New(db)
 }
