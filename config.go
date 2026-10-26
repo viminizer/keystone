@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"strconv"
 )
 
@@ -10,6 +11,19 @@ import (
 type Config struct {
 	port    int
 	aofPath string
+}
+
+// MustLoadConfig reads the settings from the program's flags and
+// environment variables, and prints them. If they are wrong, it prints the
+// error and exits.
+func MustLoadConfig() *Config {
+	config, err := LoadConfig(os.Args[1:], os.Getenv)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	fmt.Printf("port %d, append-only file %s\n", config.port, config.aofPath)
+	return config
 }
 
 // LoadConfig reads the settings from the command-line flags in args and
