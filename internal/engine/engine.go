@@ -18,8 +18,8 @@ import (
 // Engine runs the database operations. It changes the store and writes each
 // change to the log.
 type Engine struct {
-	db     *store.Store
-	aofLog *aof.Log
+	storage *store.Store
+	aofLog  *aof.Log
 	// writeMutex is held while a change goes to the store and to the log.
 	// So the commands in the log are always in the same order as they
 	// changed the store. Reads do not need it, because they write nothing
@@ -30,19 +30,19 @@ type Engine struct {
 	rewriting atomic.Bool
 }
 
-func New(db *store.Store, aofLog *aof.Log) *Engine {
-	return &Engine{db: db, aofLog: aofLog}
+func New(storage *store.Store, aofLog *aof.Log) *Engine {
+	return &Engine{storage: storage, aofLog: aofLog}
 }
 
 // Open loads the saved changes from the append-only file into a new
 // store, opens the file for new changes, and returns an engine for both.
 func Open(aofPath string) (*Engine, error) {
-	db := store.New()
+	storage := store.New()
 
 	// The saved changes are loaded before any client can connect, so no
 	// client sees the data half loaded.
 	loaded, err := aof.Load(aofPath, func(command []string) {
-		replayCommand(db, command)
+		replayCommand(storage, command)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not load the append-only file: %w", err)
@@ -55,7 +55,7 @@ func Open(aofPath string) (*Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not open the append-only file: %w", err)
 	}
-	return New(db, aofLog), nil
+	return New(storage, aofLog), nil
 }
 
 // MustOpen works like Open, but if that fails, it prints the error and
@@ -73,7 +73,7 @@ func (e *Engine) Set(key string, value string) {
 	e.writeMutex.Lock()
 	defer e.writeMutex.Unlock()
 
-	e.db.Set(key, value)
+	e.storage.Set(key, value)
 	e.appendToLog([]string{"SET", key, value})
 }
 
@@ -81,13 +81,13 @@ func (e *Engine) SetWithExpiry(key string, value string, at time.Time) {
 	e.writeMutex.Lock()
 	defer e.writeMutex.Unlock()
 
-	e.db.SetWithExpiry(key, value, at)
+	e.storage.SetWithExpiry(key, value, at)
 	e.appendToLog([]string{"SET", key, value})
 	e.appendToLog([]string{"PEXPIREAT", key, unixMilli(at)})
 }
 
 func (e *Engine) Get(key string) (string, bool) {
-	return e.db.Get(key)
+	return e.storage.Get(key)
 }
 
 // Delete deletes the keys and returns how many of them existed.
@@ -97,7 +97,7 @@ func (e *Engine) Delete(keys []string) int {
 
 	deleted := 0
 	for _, key := range keys {
-		if e.db.Delete(key) {
+		if e.storage.Delete(key) {
 			deleted++
 		}
 	}
@@ -117,7 +117,7 @@ func (e *Engine) ExpireAt(key string, at time.Time) bool {
 	e.writeMutex.Lock()
 	defer e.writeMutex.Unlock()
 
-	if !e.db.ExpireAt(key, at) {
+	if !e.storage.ExpireAt(key, at) {
 		return false
 	}
 	e.appendToLog([]string{"PEXPIREAT", key, unixMilli(at)})
@@ -125,7 +125,7 @@ func (e *Engine) ExpireAt(key string, at time.Time) bool {
 }
 
 func (e *Engine) ExpiresAt(key string) (time.Time, bool) {
-	return e.db.ExpiresAt(key)
+	return e.storage.ExpiresAt(key)
 }
 
 // StartRewrite rewrites the log in the background. It returns false if a
@@ -151,7 +151,7 @@ func (e *Engine) rewrite() {
 	e.writeMutex.Lock()
 	defer e.writeMutex.Unlock()
 
-	items := e.db.Snapshot()
+	items := e.storage.Snapshot()
 	commands := [][]string{}
 	for _, item := range items {
 		commands = append(commands, []string{"SET", item.Key, item.Value})
@@ -177,7 +177,7 @@ func (e *Engine) SyncLog() error {
 // does not need writeMutex, because it writes nothing to the log. After a
 // restart, the PEXPIREAT in the log makes these keys expire again.
 func (e *Engine) DeleteExpiredKeys() {
-	e.db.DeleteExpiredKeys()
+	e.storage.DeleteExpiredKeys()
 }
 
 // RewriteIfTooBig starts a rewrite when the log has grown too big.
@@ -220,7 +220,7 @@ func (e *Engine) appendToLog(command []string) {
 // start, before any client connects, so it needs no lock and writes nothing
 // to the log. The log only has SET, DEL and PEXPIREAT. Anything else, or a
 // command with the wrong number of arguments, is skipped.
-func replayCommand(db *store.Store, command []string) {
+func replayCommand(storage *store.Store, command []string) {
 	if len(command) == 0 {
 		return
 	}
@@ -228,12 +228,12 @@ func replayCommand(db *store.Store, command []string) {
 	switch strings.ToUpper(command[0]) {
 	case "SET":
 		if len(command) == 3 {
-			db.Set(command[1], command[2])
+			storage.Set(command[1], command[2])
 		}
 
 	case "DEL":
 		for _, key := range command[1:] {
-			db.Delete(key)
+			storage.Delete(key)
 		}
 
 	case "PEXPIREAT":
@@ -242,7 +242,7 @@ func replayCommand(db *store.Store, command []string) {
 		}
 		milliseconds, err := strconv.ParseInt(command[2], 10, 64)
 		if err == nil {
-			db.ExpireAt(command[1], time.UnixMilli(milliseconds))
+			storage.ExpireAt(command[1], time.UnixMilli(milliseconds))
 		}
 	}
 }

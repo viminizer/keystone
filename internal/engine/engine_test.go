@@ -32,7 +32,7 @@ func TestShouldRewrite(t *testing.T) {
 }
 
 func TestReplayCommand(t *testing.T) {
-	db := store.New()
+	storage := store.New()
 	commands := [][]string{
 		{"SET", "a", "1"},
 		{"SET", "b", "2"},
@@ -47,16 +47,16 @@ func TestReplayCommand(t *testing.T) {
 		{"PING"},
 	}
 	for _, command := range commands {
-		replayCommand(db, command)
+		replayCommand(storage, command)
 	}
 
 	for key, want := range map[string]bool{"a": true, "b": false, "c": true, "d": false} {
-		_, found := db.Get(key)
+		_, found := storage.Get(key)
 		if found != want {
 			t.Errorf("key %q found = %v, want %v", key, found, want)
 		}
 	}
-	if expiresAt, _ := db.ExpiresAt("a"); !expiresAt.IsZero() {
+	if expiresAt, _ := storage.ExpiresAt("a"); !expiresAt.IsZero() {
 		t.Errorf("key a expires at %v, want no expiry", expiresAt)
 	}
 }
