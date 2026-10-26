@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/viminizer/keystone/resp"
+	"github.com/viminizer/keystone/internal/resp"
 )
 
 // Log is an open append-only file.

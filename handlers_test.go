@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/viminizer/keystone/aof"
-	"github.com/viminizer/keystone/resp"
-	"github.com/viminizer/keystone/store"
+	"github.com/viminizer/keystone/internal/aof"
+	"github.com/viminizer/keystone/internal/resp"
+	"github.com/viminizer/keystone/internal/store"
 )
 
 func TestExecute(t *testing.T) {

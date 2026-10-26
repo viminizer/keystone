@@ -7,7 +7,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/viminizer/keystone/resp"
+	"github.com/viminizer/keystone/internal/resp"
 )
 
 // Server accepts clients on a TCP port, reads their commands and sends the

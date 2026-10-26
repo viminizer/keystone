@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/viminizer/keystone/resp"
+	"github.com/viminizer/keystone/internal/resp"
 )
 
 // Load reads the file and calls run for every command in it, in order.
