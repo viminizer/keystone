@@ -14,28 +14,45 @@ func TestLoad(t *testing.T) {
 	}{
 		{
 			name: "defaults",
-			want: &Config{Port: 6380, AOFPath: "appendonly.aof", LogLevel: slog.LevelInfo, LogFormat: "text"},
+			want: &Config{
+				Port: 6380, AOFPath: "appendonly.aof", LogLevel: slog.LevelInfo, LogFormat: "text",
+				MetricsEnabled: true, MetricsPort: 9380,
+			},
 		},
 		{
 			name: "environment variables",
 			env: map[string]string{
-				"KEYSTONE_PORT":       "7000",
-				"KEYSTONE_AOF_PATH":   "/data/keystone.aof",
-				"KEYSTONE_LOG_LEVEL":  "debug",
-				"KEYSTONE_LOG_FORMAT": "json",
+				"KEYSTONE_PORT":            "7000",
+				"KEYSTONE_AOF_PATH":        "/data/keystone.aof",
+				"KEYSTONE_LOG_LEVEL":       "debug",
+				"KEYSTONE_LOG_FORMAT":      "json",
+				"KEYSTONE_METRICS_ENABLED": "false",
+				"KEYSTONE_METRICS_PORT":    "9000",
 			},
-			want: &Config{Port: 7000, AOFPath: "/data/keystone.aof", LogLevel: slog.LevelDebug, LogFormat: "json"},
+			want: &Config{
+				Port: 7000, AOFPath: "/data/keystone.aof", LogLevel: slog.LevelDebug, LogFormat: "json",
+				MetricsEnabled: false, MetricsPort: 9000,
+			},
 		},
 		{
 			name: "flags",
-			args: []string{"--port", "8000", "--aof-path", "other.aof", "--log-level", "WARN", "--log-format", "JSON"},
-			want: &Config{Port: 8000, AOFPath: "other.aof", LogLevel: slog.LevelWarn, LogFormat: "json"},
+			args: []string{
+				"--port", "8000", "--aof-path", "other.aof", "--log-level", "WARN", "--log-format", "JSON",
+				"--metrics-enabled", "0", "--metrics-port", "9100",
+			},
+			want: &Config{
+				Port: 8000, AOFPath: "other.aof", LogLevel: slog.LevelWarn, LogFormat: "json",
+				MetricsEnabled: false, MetricsPort: 9100,
+			},
 		},
 		{
 			name: "a flag wins over an environment variable",
-			args: []string{"--port", "8000", "--log-level", "error"},
-			env:  map[string]string{"KEYSTONE_PORT": "7000", "KEYSTONE_LOG_LEVEL": "debug"},
-			want: &Config{Port: 8000, AOFPath: "appendonly.aof", LogLevel: slog.LevelError, LogFormat: "text"},
+			args: []string{"--port", "8000", "--log-level", "error", "--metrics-enabled=true"},
+			env:  map[string]string{"KEYSTONE_PORT": "7000", "KEYSTONE_LOG_LEVEL": "debug", "KEYSTONE_METRICS_ENABLED": "false"},
+			want: &Config{
+				Port: 8000, AOFPath: "appendonly.aof", LogLevel: slog.LevelError, LogFormat: "text",
+				MetricsEnabled: true, MetricsPort: 9380,
+			},
 		},
 	}
 
@@ -66,11 +83,14 @@ func TestLoadBadPort(t *testing.T) {
 	}
 }
 
-func TestLoadBadLogSettings(t *testing.T) {
+func TestLoadBadSettings(t *testing.T) {
 	tests := [][]string{
 		{"--log-level", "verbose"},
 		{"--log-level", ""},
 		{"--log-format", "xml"},
+		{"--metrics-enabled", "maybe"},
+		{"--metrics-port", "0"},
+		{"--metrics-port", "abc"},
 	}
 
 	for _, args := range tests {
