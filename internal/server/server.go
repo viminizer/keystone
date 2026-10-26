@@ -5,7 +5,9 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
+	"os"
 	"strconv"
 
 	"github.com/viminizer/keystone/internal/executor"
@@ -23,6 +25,14 @@ func New(port int, commandExecutor *executor.Executor) *Server {
 	return &Server{port: port, executor: commandExecutor}
 }
 
+// MustListenAndServe works like ListenAndServe, but if the port could not be
+// opened, it logs the error and exits.
+func (s *Server) MustListenAndServe() {
+	err := s.ListenAndServe()
+	slog.Error("could not start the server", "error", err)
+	os.Exit(1)
+}
+
 // ListenAndServe opens the port and serves every client in its own
 // goroutine. It only returns if the port could not be opened.
 func (s *Server) ListenAndServe() error {
@@ -34,7 +44,7 @@ func (s *Server) ListenAndServe() error {
 	for {
 		connection, err := listener.Accept()
 		if err != nil {
-			fmt.Println("could not accept a connection:", err)
+			slog.Error("could not accept a connection", "error", err)
 			continue
 		}
 
@@ -45,7 +55,7 @@ func (s *Server) ListenAndServe() error {
 // handleConnection runs the commands of one client until it disconnects.
 func (s *Server) handleConnection(connection net.Conn) {
 	address := connection.RemoteAddr().String()
-	fmt.Println("client connected from", address)
+	slog.Info("client connected", "client", address)
 
 	reader := bufio.NewReader(connection)
 	for {
@@ -54,11 +64,11 @@ func (s *Server) handleConnection(connection net.Conn) {
 			break
 		}
 		if err != nil {
-			fmt.Printf("could not read from %s: %s\n", address, err)
+			slog.Error("could not read from the client", "client", address, "error", err)
 			break
 		}
 
-		fmt.Printf("received %q from %s\n", command, address)
+		slog.Debug("received a command", "client", address, "command", command)
 
 		reply := s.executor.Execute(command)
 		if reply == "" {
@@ -66,7 +76,7 @@ func (s *Server) handleConnection(connection net.Conn) {
 		}
 		_, err = connection.Write([]byte(reply))
 		if err != nil {
-			fmt.Printf("could not write to %s: %s\n", address, err)
+			slog.Error("could not write to the client", "client", address, "error", err)
 			break
 		}
 	}

@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -47,7 +48,7 @@ func Open(aofPath string) (*Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not load the append-only file: %w", err)
 	}
-	fmt.Printf("loaded %d commands from %s\n", loaded, aofPath)
+	slog.Info("loaded the append-only file", "path", aofPath, "commands", loaded)
 
 	// The file is opened after loading, because loading can cut a broken
 	// end off the file, and Open reads the size of the file.
@@ -58,12 +59,12 @@ func Open(aofPath string) (*Engine, error) {
 	return New(storage, aofLog), nil
 }
 
-// MustOpen works like Open, but if that fails, it prints the error and
+// MustOpen works like Open, but if that fails, it logs the error and
 // exits.
 func MustOpen(aofPath string) *Engine {
 	engine, err := Open(aofPath)
 	if err != nil {
-		fmt.Println(err)
+		slog.Error("could not open the engine", "error", err)
 		os.Exit(1)
 	}
 	return engine
@@ -162,10 +163,10 @@ func (e *Engine) rewrite() {
 
 	err := e.aofLog.Rewrite(commands)
 	if err != nil {
-		fmt.Println("could not rewrite the append-only file:", err)
+		slog.Error("could not rewrite the append-only file", "error", err)
 		return
 	}
-	fmt.Printf("rewrote the append-only file with %d keys\n", len(items))
+	slog.Info("rewrote the append-only file", "keys", len(items))
 }
 
 // SyncLog puts the log on the disk.
@@ -208,11 +209,11 @@ func (e *Engine) Shutdown() error {
 }
 
 // appendToLog writes one command to the log. If that fails, the change is
-// still in memory, so the error is only printed.
+// still in memory, so the error is only logged.
 func (e *Engine) appendToLog(command []string) {
 	err := e.aofLog.Append(command)
 	if err != nil {
-		fmt.Println("could not write to the append-only file:", err)
+		slog.Error("could not write to the append-only file", "error", err)
 	}
 }
 

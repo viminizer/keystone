@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 
 	"github.com/viminizer/keystone/internal/resp"
@@ -53,7 +54,7 @@ func Load(path string, run func(command []string)) (int, error) {
 	}
 	brokenBytes := info.Size() - int64(goodBytes)
 	if brokenBytes > 0 {
-		fmt.Printf("the append-only file ends with a broken command, cutting off the last %d bytes\n", brokenBytes)
+		slog.Warn("the append-only file ends with a broken command, cutting it off", "bytes", brokenBytes)
 		err = os.Truncate(path, int64(goodBytes))
 		if err != nil {
 			return loaded, err
