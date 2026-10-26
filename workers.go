@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -20,6 +23,24 @@ func (w *Workers) Start() {
 	go w.runSync()
 	go w.runExpiry()
 	go w.runRewrite()
+	go w.runStopOnSignal()
+}
+
+// runStopOnSignal waits for Ctrl+C (SIGINT) or kill (SIGTERM), and then
+// stops keystone cleanly.
+func (w *Workers) runStopOnSignal() {
+	stopSignals := make(chan os.Signal, 1)
+	signal.Notify(stopSignals, syscall.SIGINT, syscall.SIGTERM)
+	received := <-stopSignals
+	fmt.Printf("received %s, stopping\n", received)
+
+	err := w.engine.Shutdown()
+	if err != nil {
+		fmt.Println("could not sync the append-only file:", err)
+		os.Exit(1)
+	}
+	fmt.Println("keystone stopped")
+	os.Exit(0)
 }
 
 // runSync puts the log on the disk once a second, so a machine crash loses
