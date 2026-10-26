@@ -47,9 +47,7 @@ func main() {
 	executor := NewExecutor(engine)
 	go stopOnKillSignal(engine)
 	workers := NewWorkers(engine)
-	go workers.RunSync()
-	go workers.RunExpiry()
-	go workers.RunRewrite()
+	workers.Start()
 
 	listener, err := net.Listen("tcp", ":"+strconv.Itoa(settings.port))
 	if err != nil {
