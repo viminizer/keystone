@@ -130,6 +130,37 @@ func (e *Engine) rewrite() {
 	fmt.Printf("rewrote the append-only file with %d keys\n", len(items))
 }
 
+// SyncLog puts the log on the disk.
+func (e *Engine) SyncLog() error {
+	return e.aofLog.Sync()
+}
+
+// DeleteExpiredKeys deletes some of the expired keys that nobody reads. It
+// does not need writeMutex, because it writes nothing to the log. After a
+// restart, the PEXPIREAT in the log makes these keys expire again.
+func (e *Engine) DeleteExpiredKeys() {
+	e.db.DeleteExpiredKeys()
+}
+
+// RewriteIfTooBig starts a rewrite when the log has grown too big.
+func (e *Engine) RewriteIfTooBig() {
+	size, baseSize := e.aofLog.Sizes()
+	if shouldRewrite(size, baseSize) {
+		e.StartRewrite()
+	}
+}
+
+// The log is rewritten by itself when it is at least this big. Without it,
+// a very small file would be rewritten all the time.
+const autoRewriteMinSize = 64 * 1024 * 1024
+
+// shouldRewrite says if the log should be rewritten: when it is twice as big
+// as after the last rewrite, and at least autoRewriteMinSize. Redis uses the
+// same rule.
+func shouldRewrite(size int64, baseSize int64) bool {
+	return size >= autoRewriteMinSize && size >= 2*baseSize
+}
+
 // Shutdown waits for a running write or rewrite to finish, and puts the log
 // on the disk. It never lets go of writeMutex, so no write can happen after
 // it. Call it only right before the program exits.

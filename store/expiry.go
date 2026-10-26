@@ -4,24 +4,15 @@ import "time"
 
 // These numbers are the same as in Redis.
 const (
-	expiryInterval   = 100 * time.Millisecond
 	expirySampleSize = 20
 	expiryTimeLimit  = 25 * time.Millisecond
 )
 
-// RunActiveExpiry deletes expired keys that nobody reads, 10 times a second.
-// It never returns, so start it with go.
-func (s *Store) RunActiveExpiry() {
-	ticker := time.NewTicker(expiryInterval)
-	for range ticker.C {
-		s.deleteExpiredKeys()
-	}
-}
-
-// deleteExpiredKeys runs rounds of deleteExpiredSample. While more than
-// 25% of a round was expired, there are probably many more, so it goes on.
-// It stops after expiryTimeLimit, so clients are not kept waiting.
-func (s *Store) deleteExpiredKeys() {
+// DeleteExpiredKeys deletes expired keys that nobody reads. It runs rounds
+// of deleteExpiredSample. While more than 25% of a round was expired, there
+// are probably many more, so it goes on. It stops after expiryTimeLimit, so
+// clients are not kept waiting.
+func (s *Store) DeleteExpiredKeys() {
 	start := time.Now()
 	for {
 		checked, deleted := s.deleteExpiredSample()

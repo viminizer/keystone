@@ -5,11 +5,9 @@ package aof
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/viminizer/keystone/resp"
 )
@@ -18,7 +16,7 @@ import (
 type Log struct {
 	path string
 	// mutex protects file, size and baseSize, because Rewrite changes them
-	// while RunSync, Append and Sizes use them.
+	// while Sync, Append and Sizes use them.
 	mutex sync.Mutex
 	file  *os.File
 	// size is the size of the file now, in bytes.
@@ -44,7 +42,7 @@ func Open(path string) (*Log, error) {
 }
 
 // Append writes one command to the end of the file. The operating system
-// keeps it in memory for a short time, until RunSync puts it on the disk.
+// keeps it in memory for a short time, until Sync puts it on the disk.
 func (l *Log) Append(command []string) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
@@ -61,19 +59,6 @@ func (l *Log) Sizes() (int64, int64) {
 	defer l.mutex.Unlock()
 
 	return l.size, l.baseSize
-}
-
-// RunSync puts the written commands on the disk once a second, so a
-// machine crash loses at most about one second of changes.
-// It never returns, so start it with go.
-func (l *Log) RunSync() {
-	ticker := time.NewTicker(time.Second)
-	for range ticker.C {
-		err := l.Sync()
-		if err != nil {
-			fmt.Println("could not sync the append-only file:", err)
-		}
-	}
 }
 
 // Sync puts the written commands on the disk.
