@@ -26,7 +26,9 @@ func Setup(settings *config.Config) {
 		"port", settings.Port,
 		"aof_path", settings.AOFPath,
 		"log_level", settings.LogLevel.String(),
-		"log_format", settings.LogFormat)
+		"log_format", settings.LogFormat,
+		"metrics_enabled", settings.MetricsEnabled,
+		"metrics_port", settings.MetricsPort)
 }
 
 // handler wraps the text or json handler. Every log line in keystone goes

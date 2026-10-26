@@ -19,6 +19,10 @@ type Config struct {
 	LogLevel slog.Level
 	// LogFormat is "text" or "json".
 	LogFormat string
+	// MetricsEnabled says if the metrics are served over HTTP.
+	MetricsEnabled bool
+	// MetricsPort is the port the metrics are served on.
+	MetricsPort int
 }
 
 // MustLoad reads the settings from the program's flags and environment
@@ -49,11 +53,15 @@ func Load(args []string, getenv func(string) string) (*Config, error) {
 		"lowest level to log: debug, info, warn or error, also KEYSTONE_LOG_LEVEL")
 	logFormat := flags.String("log-format", envOrDefault(getenv, "KEYSTONE_LOG_FORMAT", "text"),
 		"log format: text or json, also KEYSTONE_LOG_FORMAT")
+	metricsEnabled := flags.String("metrics-enabled", envOrDefault(getenv, "KEYSTONE_METRICS_ENABLED", "true"),
+		"serve the metrics over HTTP: true or false, also KEYSTONE_METRICS_ENABLED")
+	metricsPort := flags.String("metrics-port", envOrDefault(getenv, "KEYSTONE_METRICS_PORT", "9380"),
+		"port to serve the metrics on, also KEYSTONE_METRICS_PORT")
 	flags.Parse(args)
 
-	portNumber, err := strconv.Atoi(*port)
-	if err != nil || portNumber < 1 || portNumber > 65535 {
-		return nil, fmt.Errorf("invalid port %q, it must be a number from 1 to 65535", *port)
+	portNumber, err := parsePort("port", *port)
+	if err != nil {
+		return nil, err
 	}
 	level, err := parseLogLevel(*logLevel)
 	if err != nil {
@@ -63,14 +71,34 @@ func Load(args []string, getenv func(string) string) (*Config, error) {
 	if format != "text" && format != "json" {
 		return nil, fmt.Errorf("invalid log format %q, it must be text or json", *logFormat)
 	}
+	enabled, err := strconv.ParseBool(*metricsEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("invalid metrics enabled %q, it must be true or false", *metricsEnabled)
+	}
+	metricsPortNumber, err := parsePort("metrics port", *metricsPort)
+	if err != nil {
+		return nil, err
+	}
 
 	config := &Config{
-		Port:      portNumber,
-		AOFPath:   *aofPath,
-		LogLevel:  level,
-		LogFormat: format,
+		Port:           portNumber,
+		AOFPath:        *aofPath,
+		LogLevel:       level,
+		LogFormat:      format,
+		MetricsEnabled: enabled,
+		MetricsPort:    metricsPortNumber,
 	}
 	return config, nil
+}
+
+// parsePort turns text into a port number from 1 to 65535. name says which
+// port it is, for the error.
+func parsePort(name string, text string) (int, error) {
+	port, err := strconv.Atoi(text)
+	if err != nil || port < 1 || port > 65535 {
+		return 0, fmt.Errorf("invalid %s %q, it must be a number from 1 to 65535", name, text)
+	}
+	return port, nil
 }
 
 // parseLogLevel turns "debug", "info", "warn" or "error" into a slog level.
