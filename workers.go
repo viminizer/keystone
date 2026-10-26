@@ -5,36 +5,43 @@ import (
 	"time"
 )
 
-// The workers run in the background, each in its own goroutine. They decide
-// when to do something, and the engine does it. They never return, so start
-// them with go.
+// Workers run in the background, each in its own goroutine. They decide
+// when to do something, and the engine does it. Their Run methods never
+// return, so start them with go.
+type Workers struct {
+	engine *Engine
+}
 
-// runSyncWorker puts the log on the disk once a second, so a machine crash
-// loses at most about one second of changes.
-func runSyncWorker(engine *Engine) {
+func NewWorkers(engine *Engine) *Workers {
+	return &Workers{engine: engine}
+}
+
+// RunSync puts the log on the disk once a second, so a machine crash loses
+// at most about one second of changes.
+func (w *Workers) RunSync() {
 	ticker := time.NewTicker(time.Second)
 	for range ticker.C {
-		err := engine.SyncLog()
+		err := w.engine.SyncLog()
 		if err != nil {
 			fmt.Println("could not sync the append-only file:", err)
 		}
 	}
 }
 
-// runExpiryWorker deletes expired keys that nobody reads, 10 times a second,
-// like Redis.
-func runExpiryWorker(engine *Engine) {
+// RunExpiry deletes expired keys that nobody reads, 10 times a second, like
+// Redis.
+func (w *Workers) RunExpiry() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	for range ticker.C {
-		engine.DeleteExpiredKeys()
+		w.engine.DeleteExpiredKeys()
 	}
 }
 
-// runRewriteWorker checks the size of the log once a second, and rewrites
-// it when it has grown too big.
-func runRewriteWorker(engine *Engine) {
+// RunRewrite checks the size of the log once a second, and rewrites it when
+// it has grown too big.
+func (w *Workers) RunRewrite() {
 	ticker := time.NewTicker(time.Second)
 	for range ticker.C {
-		engine.RewriteIfTooBig()
+		w.engine.RewriteIfTooBig()
 	}
 }
