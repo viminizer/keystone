@@ -274,7 +274,7 @@ func newTestExecutor(t *testing.T) (*Executor, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(engine.New(store.New(), aofLog), metrics.NewCommands()), path
+	return New(engine.New(store.New(), aofLog), metrics.NewCommandStats()), path
 }
 
 // restart opens the log at path the same way keystone does at start, and
@@ -284,5 +284,5 @@ func restart(t *testing.T, path string) *Executor {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(db, metrics.NewCommands())
+	return New(db, metrics.NewCommandStats())
 }

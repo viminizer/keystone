@@ -21,7 +21,7 @@ func TestExecuteRecordsMetrics(t *testing.T) {
 		metrics.UnknownCommand: {1, 1},
 	}
 	got := map[string]metrics.CommandSnapshot{}
-	for _, command := range executor.metrics.Snapshot() {
+	for _, command := range executor.commandStats.Snapshot() {
 		got[command.Name] = command
 	}
 	for name, wanted := range want {

@@ -7,13 +7,13 @@ import (
 )
 
 func TestWritePrometheus(t *testing.T) {
-	commands := NewCommands()
-	commands.Add("GET")
-	commands.Record("GET", 3*time.Microsecond, false)
-	commands.Record("GET", 20*time.Microsecond, true)
+	commandStats := NewCommandStats()
+	commandStats.Add("GET")
+	commandStats.Record("GET", 3*time.Microsecond, false)
+	commandStats.Record("GET", 20*time.Microsecond, true)
 
 	var output strings.Builder
-	err := commands.WritePrometheus(&output)
+	err := commandStats.WritePrometheus(&output)
 	if err != nil {
 		t.Fatal(err)
 	}

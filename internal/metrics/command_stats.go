@@ -12,16 +12,16 @@ import (
 // it, a client could send many made-up names and fill the memory.
 const UnknownCommand = "unknown"
 
-// Commands keeps the numbers for each command: how many replies were
+// CommandStats keeps the numbers for each command: how many replies were
 // errors, and how long each run took. It is safe to use from many
 // goroutines.
-type Commands struct {
+type CommandStats struct {
 	// stats has one entry for each command name. Add only runs before any
 	// client connects. After that it is only read, so it needs no lock.
-	stats map[string]*commandStats
+	stats map[string]*commandEntry
 }
 
-type commandStats struct {
+type commandEntry struct {
 	errors  atomic.Int64
 	latency *Histogram
 }
@@ -34,21 +34,21 @@ type CommandSnapshot struct {
 	Latency HistogramSnapshot
 }
 
-func NewCommands() *Commands {
-	commands := &Commands{stats: map[string]*commandStats{}}
-	commands.Add(UnknownCommand)
-	return commands
+func NewCommandStats() *CommandStats {
+	commandStats := &CommandStats{stats: map[string]*commandEntry{}}
+	commandStats.Add(UnknownCommand)
+	return commandStats
 }
 
 // Add starts keeping numbers for one command name. Call it only before any
 // client connects.
-func (c *Commands) Add(name string) {
-	c.stats[name] = &commandStats{latency: NewHistogram()}
+func (c *CommandStats) Add(name string) {
+	c.stats[name] = &commandEntry{latency: NewHistogram()}
 }
 
 // Record adds one run of a command. A name that was never added is counted
 // as UnknownCommand.
-func (c *Commands) Record(name string, duration time.Duration, failed bool) {
+func (c *CommandStats) Record(name string, duration time.Duration, failed bool) {
 	stats, found := c.stats[name]
 	if !found {
 		stats = c.stats[UnknownCommand]
@@ -60,7 +60,7 @@ func (c *Commands) Record(name string, duration time.Duration, failed bool) {
 }
 
 // Snapshot returns a copy of the numbers of every command, sorted by name.
-func (c *Commands) Snapshot() []CommandSnapshot {
+func (c *CommandStats) Snapshot() []CommandSnapshot {
 	snapshots := []CommandSnapshot{}
 	for name, stats := range c.stats {
 		latency := stats.latency.Snapshot()
