@@ -29,7 +29,8 @@ func TestRunCommand(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got := runCommand(test.command, store.New(), nil)
+		engine, _ := newTestEngine(t)
+		got := runCommand(test.command, engine)
 		if got != test.want {
 			t.Errorf("runCommand(%q) = %q, want %q", test.command, got, test.want)
 		}
@@ -37,43 +38,43 @@ func TestRunCommand(t *testing.T) {
 }
 
 func TestSetThenGet(t *testing.T) {
-	db := store.New()
+	engine, _ := newTestEngine(t)
 
-	got := runCommand([]string{"SET", "name", "kevin"}, db, nil)
+	got := runCommand([]string{"SET", "name", "kevin"}, engine)
 	if got != "+OK\r\n" {
 		t.Fatalf("SET = %q", got)
 	}
 
-	got = runCommand([]string{"get", "name"}, db, nil)
+	got = runCommand([]string{"get", "name"}, engine)
 	if got != "$5\r\nkevin\r\n" {
 		t.Fatalf("GET = %q", got)
 	}
 }
 
 func TestDel(t *testing.T) {
-	db := store.New()
-	runCommand([]string{"SET", "a", "1"}, db, nil)
-	runCommand([]string{"SET", "b", "2"}, db, nil)
+	engine, _ := newTestEngine(t)
+	runCommand([]string{"SET", "a", "1"}, engine)
+	runCommand([]string{"SET", "b", "2"}, engine)
 
-	got := runCommand([]string{"DEL", "a", "b", "c"}, db, nil)
+	got := runCommand([]string{"DEL", "a", "b", "c"}, engine)
 	if got != ":2\r\n" {
 		t.Fatalf("DEL a b c = %q, want 2 deleted", got)
 	}
 
-	got = runCommand([]string{"DEL", "a"}, db, nil)
+	got = runCommand([]string{"DEL", "a"}, engine)
 	if got != ":0\r\n" {
 		t.Fatalf("DEL a again = %q, want 0 deleted", got)
 	}
 
-	got = runCommand([]string{"DEL"}, db, nil)
+	got = runCommand([]string{"DEL"}, engine)
 	if got != "-ERR wrong number of arguments for 'del' command\r\n" {
 		t.Fatalf("DEL with no key = %q", got)
 	}
 }
 
 func TestExpireAndTTL(t *testing.T) {
-	db := store.New()
-	runCommand([]string{"SET", "name", "kevin"}, db, nil)
+	engine, _ := newTestEngine(t)
+	runCommand([]string{"SET", "name", "kevin"}, engine)
 
 	tests := []struct {
 		command []string
@@ -93,7 +94,7 @@ func TestExpireAndTTL(t *testing.T) {
 
 	// The cases run in order on the same store, so each one sees the one before.
 	for _, test := range tests {
-		got := runCommand(test.command, db, nil)
+		got := runCommand(test.command, engine)
 		if got != test.want {
 			t.Errorf("runCommand(%q) = %q, want %q", test.command, got, test.want)
 		}
@@ -101,7 +102,7 @@ func TestExpireAndTTL(t *testing.T) {
 }
 
 func TestSetWithEX(t *testing.T) {
-	db := store.New()
+	engine, _ := newTestEngine(t)
 
 	tests := []struct {
 		command []string
@@ -123,7 +124,7 @@ func TestSetWithEX(t *testing.T) {
 
 	// The cases run in order on the same store, so each one sees the one before.
 	for _, test := range tests {
-		got := runCommand(test.command, db, nil)
+		got := runCommand(test.command, engine)
 		if got != test.want {
 			t.Errorf("runCommand(%q) = %q, want %q", test.command, got, test.want)
 		}
@@ -131,8 +132,8 @@ func TestSetWithEX(t *testing.T) {
 }
 
 func TestPexpireat(t *testing.T) {
-	db := store.New()
-	runCommand([]string{"SET", "name", "kevin"}, db, nil)
+	engine, _ := newTestEngine(t)
+	runCommand([]string{"SET", "name", "kevin"}, engine)
 	inTenSeconds := strconv.FormatInt(time.Now().Add(10*time.Second).UnixMilli(), 10)
 	aSecondAgo := strconv.FormatInt(time.Now().Add(-time.Second).UnixMilli(), 10)
 
@@ -151,7 +152,7 @@ func TestPexpireat(t *testing.T) {
 
 	// The cases run in order on the same store, so each one sees the one before.
 	for _, test := range tests {
-		got := runCommand(test.command, db, nil)
+		got := runCommand(test.command, engine)
 		if got != test.want {
 			t.Errorf("runCommand(%q) = %q, want %q", test.command, got, test.want)
 		}
@@ -159,12 +160,7 @@ func TestPexpireat(t *testing.T) {
 }
 
 func TestWriteCommandsAreLogged(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "appendonly.aof")
-	aofLog, err := aof.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	db := store.New()
+	engine, path := newTestEngine(t)
 
 	commands := [][]string{
 		{"SET", "name", "kevin"},
@@ -178,7 +174,7 @@ func TestWriteCommandsAreLogged(t *testing.T) {
 		{"TTL", "session"},
 	}
 	for _, command := range commands {
-		runCommand(command, db, aofLog)
+		runCommand(command, engine)
 	}
 
 	file, _ := os.Open(path)
@@ -211,13 +207,11 @@ func TestWriteCommandsAreLogged(t *testing.T) {
 }
 
 func TestExpireIsLoggedAsAMoment(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "appendonly.aof")
-	aofLog, _ := aof.Open(path)
-	db := store.New()
-	runCommand([]string{"SET", "name", "kevin"}, db, aofLog)
+	engine, path := newTestEngine(t)
+	runCommand([]string{"SET", "name", "kevin"}, engine)
 
 	before := time.Now().Add(10 * time.Second).UnixMilli()
-	runCommand([]string{"EXPIRE", "name", "10"}, db, aofLog)
+	runCommand([]string{"EXPIRE", "name", "10"}, engine)
 	after := time.Now().Add(10 * time.Second).UnixMilli()
 
 	file, _ := os.Open(path)
@@ -231,19 +225,13 @@ func TestExpireIsLoggedAsAMoment(t *testing.T) {
 }
 
 func TestRestartKeepsData(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "appendonly.aof")
-	aofLog, _ := aof.Open(path)
-	before := store.New()
-	runCommand([]string{"SET", "name", "kevin"}, before, aofLog)
-	runCommand([]string{"SET", "session", "abc", "EX", "100"}, before, aofLog)
-	runCommand([]string{"SET", "old", "x"}, before, aofLog)
-	runCommand([]string{"DEL", "old"}, before, aofLog)
+	before, path := newTestEngine(t)
+	runCommand([]string{"SET", "name", "kevin"}, before)
+	runCommand([]string{"SET", "session", "abc", "EX", "100"}, before)
+	runCommand([]string{"SET", "old", "x"}, before)
+	runCommand([]string{"DEL", "old"}, before)
 
-	// A new, empty store, like after a restart.
-	after := store.New()
-	aof.Load(path, func(command []string) {
-		runCommand(command, after, nil)
-	})
+	after := restart(t, path)
 
 	tests := []struct {
 		command []string
@@ -255,7 +243,7 @@ func TestRestartKeepsData(t *testing.T) {
 		{[]string{"GET", "old"}, "$-1\r\n"},
 	}
 	for _, test := range tests {
-		got := runCommand(test.command, after, nil)
+		got := runCommand(test.command, after)
 		if got != test.want {
 			t.Errorf("after restart, runCommand(%q) = %q, want %q", test.command, got, test.want)
 		}
@@ -265,47 +253,66 @@ func TestRestartKeepsData(t *testing.T) {
 func TestRestartDropsExpiredKeys(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "appendonly.aof")
 	aofLog, _ := aof.Open(path)
-	runCommand([]string{"SET", "name", "kevin"}, store.New(), aofLog)
+	aofLog.Append([]string{"SET", "name", "kevin"})
 	aSecondAgo := strconv.FormatInt(time.Now().Add(-time.Second).UnixMilli(), 10)
 	aofLog.Append([]string{"PEXPIREAT", "name", aSecondAgo})
 
-	after := store.New()
-	aof.Load(path, func(command []string) {
-		runCommand(command, after, nil)
-	})
+	after := restart(t, path)
 
-	if got := runCommand([]string{"GET", "name"}, after, nil); got != "$-1\r\n" {
+	if got := runCommand([]string{"GET", "name"}, after); got != "$-1\r\n" {
 		t.Errorf("GET name after restart = %q, want the key to be expired", got)
 	}
 }
 
-func TestRewriteLog(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "appendonly.aof")
-	aofLog, _ := aof.Open(path)
+func TestReplayCommand(t *testing.T) {
 	db := store.New()
-	runCommand([]string{"SET", "name", "kevin"}, db, aofLog)
-	runCommand([]string{"SET", "name", "alex"}, db, aofLog)
-	runCommand([]string{"SET", "name", "sam"}, db, aofLog)
-	runCommand([]string{"SET", "temp", "x"}, db, aofLog)
-	runCommand([]string{"DEL", "temp"}, db, aofLog)
-	runCommand([]string{"SET", "session", "abc", "EX", "100"}, db, aofLog)
+	commands := [][]string{
+		{"SET", "a", "1"},
+		{"SET", "b", "2"},
+		{"set", "c", "3"},
+		// Older logs can have the name as the client sent it.
+		{"del", "b"},
+		// These are skipped, and must not crash.
+		{},
+		{"SET", "d"},
+		{"PEXPIREAT", "a"},
+		{"PEXPIREAT", "a", "soon"},
+		{"PING"},
+	}
+	for _, command := range commands {
+		replayCommand(db, command)
+	}
 
-	rewriteLog(db, aofLog)
+	for key, want := range map[string]bool{"a": true, "b": false, "c": true, "d": false} {
+		_, found := db.Get(key)
+		if found != want {
+			t.Errorf("key %q found = %v, want %v", key, found, want)
+		}
+	}
+	if expiresAt, _ := db.ExpiresAt("a"); !expiresAt.IsZero() {
+		t.Errorf("key a expires at %v, want no expiry", expiresAt)
+	}
+}
+
+func TestRewrite(t *testing.T) {
+	engine, path := newTestEngine(t)
+	runCommand([]string{"SET", "name", "kevin"}, engine)
+	runCommand([]string{"SET", "name", "alex"}, engine)
+	runCommand([]string{"SET", "name", "sam"}, engine)
+	runCommand([]string{"SET", "temp", "x"}, engine)
+	runCommand([]string{"DEL", "temp"}, engine)
+	runCommand([]string{"SET", "session", "abc", "EX", "100"}, engine)
+
+	engine.rewrite()
 	// A write after the rewrite must go into the new file.
-	runCommand([]string{"SET", "after", "yes"}, db, aofLog)
+	runCommand([]string{"SET", "after", "yes"}, engine)
 
-	var logged [][]string
-	aof.Load(path, func(command []string) {
-		logged = append(logged, command)
-	})
-	if len(logged) != 4 {
-		t.Fatalf("logged %q, want 4 commands", logged)
+	logged, _ := aof.Load(path, func(command []string) {})
+	if logged != 4 {
+		t.Fatalf("logged %d commands, want 4", logged)
 	}
 
-	after := store.New()
-	for _, command := range logged {
-		runCommand(command, after, nil)
-	}
+	after := restart(t, path)
 	tests := []struct {
 		command []string
 		want    string
@@ -317,7 +324,7 @@ func TestRewriteLog(t *testing.T) {
 		{[]string{"GET", "after"}, "$3\r\nyes\r\n"},
 	}
 	for _, test := range tests {
-		got := runCommand(test.command, after, nil)
+		got := runCommand(test.command, after)
 		if got != test.want {
 			t.Errorf("after rewrite and load, runCommand(%q) = %q, want %q", test.command, got, test.want)
 		}
@@ -325,12 +332,37 @@ func TestRewriteLog(t *testing.T) {
 }
 
 func TestBgrewriteaofOneAtATime(t *testing.T) {
+	engine, _ := newTestEngine(t)
 	// Act as if a rewrite is already running.
-	rewriting.Store(true)
-	defer rewriting.Store(false)
+	engine.rewriting.Store(true)
 
-	got := runCommand([]string{"BGREWRITEAOF"}, store.New(), nil)
+	got := runCommand([]string{"BGREWRITEAOF"}, engine)
 	if got != "-ERR Background append only file rewriting already in progress\r\n" {
 		t.Errorf("BGREWRITEAOF during a rewrite = %q", got)
 	}
+}
+
+// newTestEngine returns an engine with an empty store and a new log in a
+// temporary folder, and the path of that log.
+func newTestEngine(t *testing.T) (*Engine, string) {
+	path := filepath.Join(t.TempDir(), "appendonly.aof")
+	aofLog, err := aof.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return NewEngine(store.New(), aofLog), path
+}
+
+// restart loads the log at path into a new, empty store, like keystone does
+// at start, and returns an engine for that store.
+func restart(t *testing.T, path string) *Engine {
+	db := store.New()
+	aof.Load(path, func(command []string) {
+		replayCommand(db, command)
+	})
+	aofLog, err := aof.Open(filepath.Join(t.TempDir(), "appendonly.aof"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return NewEngine(db, aofLog)
 }
