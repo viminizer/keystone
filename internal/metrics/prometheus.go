@@ -10,7 +10,7 @@ import (
 // WritePrometheus writes the numbers of every command in the Prometheus
 // text format. Times are written in seconds, and the command name is a
 // label in lowercase, like command="get".
-func (c *Commands) WritePrometheus(writer io.Writer) error {
+func (c *CommandStats) WritePrometheus(writer io.Writer) error {
 	snapshots := c.Snapshot()
 	var text strings.Builder
 

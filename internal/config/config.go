@@ -19,10 +19,10 @@ type Config struct {
 	LogLevel slog.Level
 	// LogFormat is "text" or "json".
 	LogFormat string
-	// MetricsEnabled says if the metrics are served over HTTP.
-	MetricsEnabled bool
-	// MetricsPort is the port the metrics are served on.
-	MetricsPort int
+	// HTTPEnabled says if the HTTP server runs.
+	HTTPEnabled bool
+	// HTTPPort is the port the HTTP server listens on.
+	HTTPPort int
 }
 
 // MustLoad reads the settings from the program's flags and environment
@@ -53,10 +53,10 @@ func Load(args []string, getenv func(string) string) (*Config, error) {
 		"lowest level to log: debug, info, warn or error, also KEYSTONE_LOG_LEVEL")
 	logFormat := flags.String("log-format", envOrDefault(getenv, "KEYSTONE_LOG_FORMAT", "text"),
 		"log format: text or json, also KEYSTONE_LOG_FORMAT")
-	metricsEnabled := flags.String("metrics-enabled", envOrDefault(getenv, "KEYSTONE_METRICS_ENABLED", "true"),
-		"serve the metrics over HTTP: true or false, also KEYSTONE_METRICS_ENABLED")
-	metricsPort := flags.String("metrics-port", envOrDefault(getenv, "KEYSTONE_METRICS_PORT", "9380"),
-		"port to serve the metrics on, also KEYSTONE_METRICS_PORT")
+	httpEnabled := flags.String("http-enabled", envOrDefault(getenv, "KEYSTONE_HTTP_ENABLED", "true"),
+		"run the HTTP server, which serves the metrics: true or false, also KEYSTONE_HTTP_ENABLED")
+	httpPort := flags.String("http-port", envOrDefault(getenv, "KEYSTONE_HTTP_PORT", "9380"),
+		"port for the HTTP server, also KEYSTONE_HTTP_PORT")
 	flags.Parse(args)
 
 	portNumber, err := parsePort("port", *port)
@@ -71,22 +71,22 @@ func Load(args []string, getenv func(string) string) (*Config, error) {
 	if format != "text" && format != "json" {
 		return nil, fmt.Errorf("invalid log format %q, it must be text or json", *logFormat)
 	}
-	enabled, err := strconv.ParseBool(*metricsEnabled)
+	enabled, err := strconv.ParseBool(*httpEnabled)
 	if err != nil {
-		return nil, fmt.Errorf("invalid metrics enabled %q, it must be true or false", *metricsEnabled)
+		return nil, fmt.Errorf("invalid http enabled %q, it must be true or false", *httpEnabled)
 	}
-	metricsPortNumber, err := parsePort("metrics port", *metricsPort)
+	httpPortNumber, err := parsePort("http port", *httpPort)
 	if err != nil {
 		return nil, err
 	}
 
 	config := &Config{
-		Port:           portNumber,
-		AOFPath:        *aofPath,
-		LogLevel:       level,
-		LogFormat:      format,
-		MetricsEnabled: enabled,
-		MetricsPort:    metricsPortNumber,
+		Port:        portNumber,
+		AOFPath:     *aofPath,
+		LogLevel:    level,
+		LogFormat:   format,
+		HTTPEnabled: enabled,
+		HTTPPort:    httpPortNumber,
 	}
 	return config, nil
 }

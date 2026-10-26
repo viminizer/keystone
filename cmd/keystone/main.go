@@ -4,9 +4,9 @@ import (
 	"github.com/viminizer/keystone/internal/config"
 	"github.com/viminizer/keystone/internal/engine"
 	"github.com/viminizer/keystone/internal/executor"
+	"github.com/viminizer/keystone/internal/httpserver"
 	"github.com/viminizer/keystone/internal/logging"
 	"github.com/viminizer/keystone/internal/metrics"
-	"github.com/viminizer/keystone/internal/metricsserver"
 	"github.com/viminizer/keystone/internal/server"
 	"github.com/viminizer/keystone/internal/workers"
 )
@@ -16,11 +16,14 @@ func main() {
 	logging.Setup(settings)
 
 	db := engine.MustOpen(settings.AOFPath)
-	commandMetrics := metrics.NewCommands()
-	commandExecutor := executor.New(db, commandMetrics)
+	metricsRegistry := metrics.NewRegistry()
+	commandExecutor := executor.New(db, metricsRegistry.CommandStats)
 	backgroundWorkers := workers.New(db)
 	backgroundWorkers.Start()
-	metricsserver.New(settings.MetricsEnabled, settings.MetricsPort, commandMetrics).MustStart()
+
+	httpserver.New(settings).
+		Get("metrics", metricsRegistry.HandleMetrics).
+		MustStart()
 
 	tcpServer := server.New(settings.Port, commandExecutor)
 	tcpServer.MustListenAndServe()

@@ -1,24 +1,21 @@
-package metricsserver
+package metrics
 
 import (
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/viminizer/keystone/internal/metrics"
 )
 
 func TestHandleMetrics(t *testing.T) {
-	commandMetrics := metrics.NewCommands()
-	commandMetrics.Add("GET")
-	commandMetrics.Record("GET", time.Microsecond, false)
-	server := New(true, 0, commandMetrics)
+	registry := NewRegistry()
+	registry.CommandStats.Add("GET")
+	registry.CommandStats.Record("GET", time.Microsecond, false)
 
 	// httptest makes a fake request and records the reply, without a port.
 	request := httptest.NewRequest("GET", "/metrics", nil)
 	reply := httptest.NewRecorder()
-	server.handleMetrics(reply, request)
+	registry.HandleMetrics(reply, request)
 
 	if reply.Code != 200 {
 		t.Errorf("status = %d, want 200", reply.Code)

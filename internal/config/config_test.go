@@ -16,42 +16,42 @@ func TestLoad(t *testing.T) {
 			name: "defaults",
 			want: &Config{
 				Port: 6380, AOFPath: "appendonly.aof", LogLevel: slog.LevelInfo, LogFormat: "text",
-				MetricsEnabled: true, MetricsPort: 9380,
+				HTTPEnabled: true, HTTPPort: 9380,
 			},
 		},
 		{
 			name: "environment variables",
 			env: map[string]string{
-				"KEYSTONE_PORT":            "7000",
-				"KEYSTONE_AOF_PATH":        "/data/keystone.aof",
-				"KEYSTONE_LOG_LEVEL":       "debug",
-				"KEYSTONE_LOG_FORMAT":      "json",
-				"KEYSTONE_METRICS_ENABLED": "false",
-				"KEYSTONE_METRICS_PORT":    "9000",
+				"KEYSTONE_PORT":         "7000",
+				"KEYSTONE_AOF_PATH":     "/data/keystone.aof",
+				"KEYSTONE_LOG_LEVEL":    "debug",
+				"KEYSTONE_LOG_FORMAT":   "json",
+				"KEYSTONE_HTTP_ENABLED": "false",
+				"KEYSTONE_HTTP_PORT":    "9000",
 			},
 			want: &Config{
 				Port: 7000, AOFPath: "/data/keystone.aof", LogLevel: slog.LevelDebug, LogFormat: "json",
-				MetricsEnabled: false, MetricsPort: 9000,
+				HTTPEnabled: false, HTTPPort: 9000,
 			},
 		},
 		{
 			name: "flags",
 			args: []string{
 				"--port", "8000", "--aof-path", "other.aof", "--log-level", "WARN", "--log-format", "JSON",
-				"--metrics-enabled", "0", "--metrics-port", "9100",
+				"--http-enabled", "0", "--http-port", "9100",
 			},
 			want: &Config{
 				Port: 8000, AOFPath: "other.aof", LogLevel: slog.LevelWarn, LogFormat: "json",
-				MetricsEnabled: false, MetricsPort: 9100,
+				HTTPEnabled: false, HTTPPort: 9100,
 			},
 		},
 		{
 			name: "a flag wins over an environment variable",
-			args: []string{"--port", "8000", "--log-level", "error", "--metrics-enabled=true"},
-			env:  map[string]string{"KEYSTONE_PORT": "7000", "KEYSTONE_LOG_LEVEL": "debug", "KEYSTONE_METRICS_ENABLED": "false"},
+			args: []string{"--port", "8000", "--log-level", "error", "--http-enabled=true"},
+			env:  map[string]string{"KEYSTONE_PORT": "7000", "KEYSTONE_LOG_LEVEL": "debug", "KEYSTONE_HTTP_ENABLED": "false"},
 			want: &Config{
 				Port: 8000, AOFPath: "appendonly.aof", LogLevel: slog.LevelError, LogFormat: "text",
-				MetricsEnabled: true, MetricsPort: 9380,
+				HTTPEnabled: true, HTTPPort: 9380,
 			},
 		},
 	}
@@ -88,9 +88,9 @@ func TestLoadBadSettings(t *testing.T) {
 		{"--log-level", "verbose"},
 		{"--log-level", ""},
 		{"--log-format", "xml"},
-		{"--metrics-enabled", "maybe"},
-		{"--metrics-port", "0"},
-		{"--metrics-port", "abc"},
+		{"--http-enabled", "maybe"},
+		{"--http-port", "0"},
+		{"--http-port", "abc"},
 	}
 
 	for _, args := range tests {

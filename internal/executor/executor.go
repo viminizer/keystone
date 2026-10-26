@@ -22,15 +22,15 @@ type Executor struct {
 	db *engine.Engine
 	// commands is only changed by New, before any client connects.
 	// After that it is only read, so it needs no lock.
-	commands map[string]Handler
-	metrics  *metrics.Commands
+	commands     map[string]Handler
+	commandStats *metrics.CommandStats
 }
 
-func New(db *engine.Engine, commandMetrics *metrics.Commands) *Executor {
+func New(db *engine.Engine, commandStats *metrics.CommandStats) *Executor {
 	executor := &Executor{
-		db:       db,
-		commands: map[string]Handler{},
-		metrics:  commandMetrics,
+		db:           db,
+		commands:     map[string]Handler{},
+		commandStats: commandStats,
 	}
 
 	executor.Register("PING", handlePing)
@@ -49,7 +49,7 @@ func New(db *engine.Engine, commandMetrics *metrics.Commands) *Executor {
 // it. The name must be in capitals.
 func (e *Executor) Register(name string, run func(db *engine.Engine, args []string) string) {
 	e.commands[name] = Handler{Run: run}
-	e.metrics.Add(name)
+	e.commandStats.Add(name)
 }
 
 // Execute runs one command and returns the reply to send. It records how
@@ -64,7 +64,7 @@ func (e *Executor) Execute(command []string) string {
 	start := time.Now()
 	reply := e.exec(name, command)
 	// Error replies in RESP start with "-".
-	e.metrics.Record(name, time.Since(start), strings.HasPrefix(reply, "-"))
+	e.commandStats.Record(name, time.Since(start), strings.HasPrefix(reply, "-"))
 	return reply
 }
 

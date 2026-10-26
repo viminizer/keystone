@@ -18,7 +18,7 @@ func TestHandleConnection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := New(0, executor.New(engine.New(store.New(), aofLog), metrics.NewCommands()))
+	server := New(0, executor.New(engine.New(store.New(), aofLog), metrics.NewCommandStats()))
 	// net.Pipe gives two connected ends that work in memory, without a port.
 	client, serverEnd := net.Pipe()
 	defer client.Close()
