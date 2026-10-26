@@ -30,7 +30,7 @@ func main() {
 	// Load the saved changes before any client can connect, so no client
 	// sees the data half loaded. They are not written to the log again.
 	loaded, err := aof.Load(settings.aofPath, func(command []string) {
-		runCommand(command, db, nil)
+		replayCommand(db, command)
 	})
 	if err != nil {
 		fmt.Println("could not load the append-only file:", err)
@@ -43,9 +43,10 @@ func main() {
 		fmt.Println("could not open the append-only file:", err)
 		os.Exit(1)
 	}
-	go stopOnKillSignal(aofLog)
+	engine := NewEngine(db, aofLog)
+	go stopOnKillSignal(engine)
 	go aofLog.RunSync()
-	go runAutoRewrite(db, aofLog)
+	go runAutoRewrite(engine, aofLog)
 	go db.RunActiveExpiry()
 
 	listener, err := net.Listen("tcp", ":"+strconv.Itoa(settings.port))
@@ -61,11 +62,11 @@ func main() {
 			continue
 		}
 
-		go handleConnection(connection, db, aofLog)
+		go handleConnection(connection, engine)
 	}
 }
 
-func handleConnection(connection net.Conn, db *store.Store, aofLog *aof.Log) {
+func handleConnection(connection net.Conn, engine *Engine) {
 	address := connection.RemoteAddr().String()
 	fmt.Println("client connected from", address)
 
@@ -82,7 +83,7 @@ func handleConnection(connection net.Conn, db *store.Store, aofLog *aof.Log) {
 
 		fmt.Printf("received %q from %s\n", command, address)
 
-		reply := runCommand(command, db, aofLog)
+		reply := runCommand(command, engine)
 		if reply == "" {
 			continue
 		}
@@ -98,16 +99,13 @@ func handleConnection(connection net.Conn, db *store.Store, aofLog *aof.Log) {
 
 // stopOnKillSignal waits for Ctrl+C (SIGINT) or kill (SIGTERM), and then stops
 // keystone cleanly. It never returns, so start it with go.
-func stopOnKillSignal(aofLog *aof.Log) {
+func stopOnKillSignal(engine *Engine) {
 	killSignals := make(chan os.Signal, 1)
 	signal.Notify(killSignals, syscall.SIGINT, syscall.SIGTERM)
 	received := <-killSignals
 	fmt.Printf("received %s, stopping\n", received)
 
-	// Wait for a running write or rewrite to finish. New writes then wait
-	// until keystone has stopped.
-	writeMutex.Lock()
-	err := aofLog.Sync()
+	err := engine.Shutdown()
 	if err != nil {
 		fmt.Println("could not sync the append-only file:", err)
 		os.Exit(1)
