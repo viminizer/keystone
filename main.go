@@ -44,6 +44,7 @@ func main() {
 		os.Exit(1)
 	}
 	engine := NewEngine(db, aofLog)
+	executor := NewExecutor(engine)
 	go stopOnKillSignal(engine)
 	go aofLog.RunSync()
 	go runAutoRewrite(engine, aofLog)
@@ -62,11 +63,11 @@ func main() {
 			continue
 		}
 
-		go handleConnection(connection, engine)
+		go handleConnection(connection, executor)
 	}
 }
 
-func handleConnection(connection net.Conn, engine *Engine) {
+func handleConnection(connection net.Conn, executor *Executor) {
 	address := connection.RemoteAddr().String()
 	fmt.Println("client connected from", address)
 
@@ -83,7 +84,7 @@ func handleConnection(connection net.Conn, engine *Engine) {
 
 		fmt.Printf("received %q from %s\n", command, address)
 
-		reply := runCommand(command, engine)
+		reply := executor.Execute(command)
 		if reply == "" {
 			continue
 		}

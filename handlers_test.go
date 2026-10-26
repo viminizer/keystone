@@ -14,7 +14,7 @@ import (
 	"github.com/viminizer/keystone/store"
 )
 
-func TestRunCommand(t *testing.T) {
+func TestExecute(t *testing.T) {
 	tests := []struct {
 		command []string
 		want    string
@@ -29,52 +29,52 @@ func TestRunCommand(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		engine, _ := newTestEngine(t)
-		got := runCommand(test.command, engine)
+		executor, _ := newTestExecutor(t)
+		got := executor.Execute(test.command)
 		if got != test.want {
-			t.Errorf("runCommand(%q) = %q, want %q", test.command, got, test.want)
+			t.Errorf("Execute(%q) = %q, want %q", test.command, got, test.want)
 		}
 	}
 }
 
 func TestSetThenGet(t *testing.T) {
-	engine, _ := newTestEngine(t)
+	executor, _ := newTestExecutor(t)
 
-	got := runCommand([]string{"SET", "name", "kevin"}, engine)
+	got := executor.Execute([]string{"SET", "name", "kevin"})
 	if got != "+OK\r\n" {
 		t.Fatalf("SET = %q", got)
 	}
 
-	got = runCommand([]string{"get", "name"}, engine)
+	got = executor.Execute([]string{"get", "name"})
 	if got != "$5\r\nkevin\r\n" {
 		t.Fatalf("GET = %q", got)
 	}
 }
 
 func TestDel(t *testing.T) {
-	engine, _ := newTestEngine(t)
-	runCommand([]string{"SET", "a", "1"}, engine)
-	runCommand([]string{"SET", "b", "2"}, engine)
+	executor, _ := newTestExecutor(t)
+	executor.Execute([]string{"SET", "a", "1"})
+	executor.Execute([]string{"SET", "b", "2"})
 
-	got := runCommand([]string{"DEL", "a", "b", "c"}, engine)
+	got := executor.Execute([]string{"DEL", "a", "b", "c"})
 	if got != ":2\r\n" {
 		t.Fatalf("DEL a b c = %q, want 2 deleted", got)
 	}
 
-	got = runCommand([]string{"DEL", "a"}, engine)
+	got = executor.Execute([]string{"DEL", "a"})
 	if got != ":0\r\n" {
 		t.Fatalf("DEL a again = %q, want 0 deleted", got)
 	}
 
-	got = runCommand([]string{"DEL"}, engine)
+	got = executor.Execute([]string{"DEL"})
 	if got != "-ERR wrong number of arguments for 'del' command\r\n" {
 		t.Fatalf("DEL with no key = %q", got)
 	}
 }
 
 func TestExpireAndTTL(t *testing.T) {
-	engine, _ := newTestEngine(t)
-	runCommand([]string{"SET", "name", "kevin"}, engine)
+	executor, _ := newTestExecutor(t)
+	executor.Execute([]string{"SET", "name", "kevin"})
 
 	tests := []struct {
 		command []string
@@ -94,15 +94,15 @@ func TestExpireAndTTL(t *testing.T) {
 
 	// The cases run in order on the same store, so each one sees the one before.
 	for _, test := range tests {
-		got := runCommand(test.command, engine)
+		got := executor.Execute(test.command)
 		if got != test.want {
-			t.Errorf("runCommand(%q) = %q, want %q", test.command, got, test.want)
+			t.Errorf("Execute(%q) = %q, want %q", test.command, got, test.want)
 		}
 	}
 }
 
 func TestSetWithEX(t *testing.T) {
-	engine, _ := newTestEngine(t)
+	executor, _ := newTestExecutor(t)
 
 	tests := []struct {
 		command []string
@@ -124,16 +124,16 @@ func TestSetWithEX(t *testing.T) {
 
 	// The cases run in order on the same store, so each one sees the one before.
 	for _, test := range tests {
-		got := runCommand(test.command, engine)
+		got := executor.Execute(test.command)
 		if got != test.want {
-			t.Errorf("runCommand(%q) = %q, want %q", test.command, got, test.want)
+			t.Errorf("Execute(%q) = %q, want %q", test.command, got, test.want)
 		}
 	}
 }
 
 func TestPexpireat(t *testing.T) {
-	engine, _ := newTestEngine(t)
-	runCommand([]string{"SET", "name", "kevin"}, engine)
+	executor, _ := newTestExecutor(t)
+	executor.Execute([]string{"SET", "name", "kevin"})
 	inTenSeconds := strconv.FormatInt(time.Now().Add(10*time.Second).UnixMilli(), 10)
 	aSecondAgo := strconv.FormatInt(time.Now().Add(-time.Second).UnixMilli(), 10)
 
@@ -152,15 +152,15 @@ func TestPexpireat(t *testing.T) {
 
 	// The cases run in order on the same store, so each one sees the one before.
 	for _, test := range tests {
-		got := runCommand(test.command, engine)
+		got := executor.Execute(test.command)
 		if got != test.want {
-			t.Errorf("runCommand(%q) = %q, want %q", test.command, got, test.want)
+			t.Errorf("Execute(%q) = %q, want %q", test.command, got, test.want)
 		}
 	}
 }
 
 func TestWriteCommandsAreLogged(t *testing.T) {
-	engine, path := newTestEngine(t)
+	executor, path := newTestExecutor(t)
 
 	commands := [][]string{
 		{"SET", "name", "kevin"},
@@ -174,7 +174,7 @@ func TestWriteCommandsAreLogged(t *testing.T) {
 		{"TTL", "session"},
 	}
 	for _, command := range commands {
-		runCommand(command, engine)
+		executor.Execute(command)
 	}
 
 	file, _ := os.Open(path)
@@ -207,11 +207,11 @@ func TestWriteCommandsAreLogged(t *testing.T) {
 }
 
 func TestExpireIsLoggedAsAMoment(t *testing.T) {
-	engine, path := newTestEngine(t)
-	runCommand([]string{"SET", "name", "kevin"}, engine)
+	executor, path := newTestExecutor(t)
+	executor.Execute([]string{"SET", "name", "kevin"})
 
 	before := time.Now().Add(10 * time.Second).UnixMilli()
-	runCommand([]string{"EXPIRE", "name", "10"}, engine)
+	executor.Execute([]string{"EXPIRE", "name", "10"})
 	after := time.Now().Add(10 * time.Second).UnixMilli()
 
 	file, _ := os.Open(path)
@@ -225,11 +225,11 @@ func TestExpireIsLoggedAsAMoment(t *testing.T) {
 }
 
 func TestRestartKeepsData(t *testing.T) {
-	before, path := newTestEngine(t)
-	runCommand([]string{"SET", "name", "kevin"}, before)
-	runCommand([]string{"SET", "session", "abc", "EX", "100"}, before)
-	runCommand([]string{"SET", "old", "x"}, before)
-	runCommand([]string{"DEL", "old"}, before)
+	before, path := newTestExecutor(t)
+	before.Execute([]string{"SET", "name", "kevin"})
+	before.Execute([]string{"SET", "session", "abc", "EX", "100"})
+	before.Execute([]string{"SET", "old", "x"})
+	before.Execute([]string{"DEL", "old"})
 
 	after := restart(t, path)
 
@@ -243,9 +243,9 @@ func TestRestartKeepsData(t *testing.T) {
 		{[]string{"GET", "old"}, "$-1\r\n"},
 	}
 	for _, test := range tests {
-		got := runCommand(test.command, after)
+		got := after.Execute(test.command)
 		if got != test.want {
-			t.Errorf("after restart, runCommand(%q) = %q, want %q", test.command, got, test.want)
+			t.Errorf("after restart, Execute(%q) = %q, want %q", test.command, got, test.want)
 		}
 	}
 }
@@ -259,7 +259,7 @@ func TestRestartDropsExpiredKeys(t *testing.T) {
 
 	after := restart(t, path)
 
-	if got := runCommand([]string{"GET", "name"}, after); got != "$-1\r\n" {
+	if got := after.Execute([]string{"GET", "name"}); got != "$-1\r\n" {
 		t.Errorf("GET name after restart = %q, want the key to be expired", got)
 	}
 }
@@ -295,17 +295,17 @@ func TestReplayCommand(t *testing.T) {
 }
 
 func TestRewrite(t *testing.T) {
-	engine, path := newTestEngine(t)
-	runCommand([]string{"SET", "name", "kevin"}, engine)
-	runCommand([]string{"SET", "name", "alex"}, engine)
-	runCommand([]string{"SET", "name", "sam"}, engine)
-	runCommand([]string{"SET", "temp", "x"}, engine)
-	runCommand([]string{"DEL", "temp"}, engine)
-	runCommand([]string{"SET", "session", "abc", "EX", "100"}, engine)
+	executor, path := newTestExecutor(t)
+	executor.Execute([]string{"SET", "name", "kevin"})
+	executor.Execute([]string{"SET", "name", "alex"})
+	executor.Execute([]string{"SET", "name", "sam"})
+	executor.Execute([]string{"SET", "temp", "x"})
+	executor.Execute([]string{"DEL", "temp"})
+	executor.Execute([]string{"SET", "session", "abc", "EX", "100"})
 
-	engine.rewrite()
+	executor.engine.rewrite()
 	// A write after the rewrite must go into the new file.
-	runCommand([]string{"SET", "after", "yes"}, engine)
+	executor.Execute([]string{"SET", "after", "yes"})
 
 	logged, _ := aof.Load(path, func(command []string) {})
 	if logged != 4 {
@@ -324,38 +324,38 @@ func TestRewrite(t *testing.T) {
 		{[]string{"GET", "after"}, "$3\r\nyes\r\n"},
 	}
 	for _, test := range tests {
-		got := runCommand(test.command, after)
+		got := after.Execute(test.command)
 		if got != test.want {
-			t.Errorf("after rewrite and load, runCommand(%q) = %q, want %q", test.command, got, test.want)
+			t.Errorf("after rewrite and load, Execute(%q) = %q, want %q", test.command, got, test.want)
 		}
 	}
 }
 
 func TestBgrewriteaofOneAtATime(t *testing.T) {
-	engine, _ := newTestEngine(t)
+	executor, _ := newTestExecutor(t)
 	// Act as if a rewrite is already running.
-	engine.rewriting.Store(true)
+	executor.engine.rewriting.Store(true)
 
-	got := runCommand([]string{"BGREWRITEAOF"}, engine)
+	got := executor.Execute([]string{"BGREWRITEAOF"})
 	if got != "-ERR Background append only file rewriting already in progress\r\n" {
 		t.Errorf("BGREWRITEAOF during a rewrite = %q", got)
 	}
 }
 
-// newTestEngine returns an engine with an empty store and a new log in a
-// temporary folder, and the path of that log.
-func newTestEngine(t *testing.T) (*Engine, string) {
+// newTestExecutor returns an executor with an empty store and a new log in
+// a temporary folder, and the path of that log.
+func newTestExecutor(t *testing.T) (*Executor, string) {
 	path := filepath.Join(t.TempDir(), "appendonly.aof")
 	aofLog, err := aof.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewEngine(store.New(), aofLog), path
+	return NewExecutor(NewEngine(store.New(), aofLog)), path
 }
 
 // restart loads the log at path into a new, empty store, like keystone does
-// at start, and returns an engine for that store.
-func restart(t *testing.T, path string) *Engine {
+// at start, and returns an executor for that store.
+func restart(t *testing.T, path string) *Executor {
 	db := store.New()
 	aof.Load(path, func(command []string) {
 		replayCommand(db, command)
@@ -364,5 +364,5 @@ func restart(t *testing.T, path string) *Engine {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewEngine(db, aofLog)
+	return NewExecutor(NewEngine(db, aofLog))
 }
