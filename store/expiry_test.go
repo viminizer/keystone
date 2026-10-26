@@ -17,7 +17,7 @@ func TestDeleteExpiredKeys(t *testing.T) {
 	time.Sleep(5 * time.Millisecond)
 
 	// Nobody reads the temp keys, so only active expiry can remove them.
-	db.deleteExpiredKeys()
+	db.DeleteExpiredKeys()
 
 	if len(db.data) != 50 {
 		t.Errorf("%d keys left, want the 50 keys without expiry", len(db.data))
