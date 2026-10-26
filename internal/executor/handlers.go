@@ -1,25 +1,26 @@
-package main
+package executor
 
 import (
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/viminizer/keystone/internal/engine"
 	"github.com/viminizer/keystone/internal/resp"
 )
 
-func handlePing(engine *Engine, args []string) string {
+func handlePing(db *engine.Engine, args []string) string {
 	return resp.SimpleString("PONG")
 }
 
-func handleSet(engine *Engine, args []string) string {
+func handleSet(db *engine.Engine, args []string) string {
 	if len(args) < 2 {
 		return wrongNumberOfArguments("set")
 	}
 	key := args[0]
 	value := args[1]
 	if len(args) == 2 {
-		engine.Set(key, value)
+		db.Set(key, value)
 		return resp.SimpleString("OK")
 	}
 	if len(args) != 4 || strings.ToUpper(args[2]) != "EX" {
@@ -33,30 +34,30 @@ func handleSet(engine *Engine, args []string) string {
 		return resp.Error("ERR invalid expire time in 'set' command")
 	}
 	at := time.Now().Add(time.Duration(seconds) * time.Second)
-	engine.SetWithExpiry(key, value, at)
+	db.SetWithExpiry(key, value, at)
 	return resp.SimpleString("OK")
 }
 
-func handleGet(engine *Engine, args []string) string {
+func handleGet(db *engine.Engine, args []string) string {
 	if len(args) != 1 {
 		return wrongNumberOfArguments("get")
 	}
-	value, found := engine.Get(args[0])
+	value, found := db.Get(args[0])
 	if !found {
 		return resp.Null()
 	}
 	return resp.BulkString(value)
 }
 
-func handleDel(engine *Engine, args []string) string {
+func handleDel(db *engine.Engine, args []string) string {
 	if len(args) < 1 {
 		return wrongNumberOfArguments("del")
 	}
-	deleted := engine.Delete(args)
+	deleted := db.Delete(args)
 	return resp.Integer(deleted)
 }
 
-func handleExpire(engine *Engine, args []string) string {
+func handleExpire(db *engine.Engine, args []string) string {
 	if len(args) != 2 {
 		return wrongNumberOfArguments("expire")
 	}
@@ -65,13 +66,13 @@ func handleExpire(engine *Engine, args []string) string {
 		return resp.Error("ERR value is not an integer or out of range")
 	}
 	at := time.Now().Add(time.Duration(seconds) * time.Second)
-	if !engine.ExpireAt(args[0], at) {
+	if !db.ExpireAt(args[0], at) {
 		return resp.Integer(0)
 	}
 	return resp.Integer(1)
 }
 
-func handlePexpireat(engine *Engine, args []string) string {
+func handlePexpireat(db *engine.Engine, args []string) string {
 	if len(args) != 2 {
 		return wrongNumberOfArguments("pexpireat")
 	}
@@ -80,17 +81,17 @@ func handlePexpireat(engine *Engine, args []string) string {
 	if err != nil {
 		return resp.Error("ERR value is not an integer or out of range")
 	}
-	if !engine.ExpireAt(args[0], time.UnixMilli(milliseconds)) {
+	if !db.ExpireAt(args[0], time.UnixMilli(milliseconds)) {
 		return resp.Integer(0)
 	}
 	return resp.Integer(1)
 }
 
-func handleTTL(engine *Engine, args []string) string {
+func handleTTL(db *engine.Engine, args []string) string {
 	if len(args) != 1 {
 		return wrongNumberOfArguments("ttl")
 	}
-	expiresAt, found := engine.ExpiresAt(args[0])
+	expiresAt, found := db.ExpiresAt(args[0])
 	if !found {
 		return resp.Integer(-2)
 	}
@@ -101,11 +102,11 @@ func handleTTL(engine *Engine, args []string) string {
 	return resp.Integer(int(secondsLeft))
 }
 
-func handleBgrewriteaof(engine *Engine, args []string) string {
+func handleBgrewriteaof(db *engine.Engine, args []string) string {
 	if len(args) != 0 {
 		return wrongNumberOfArguments("bgrewriteaof")
 	}
-	if !engine.StartRewrite() {
+	if !db.StartRewrite() {
 		return resp.Error("ERR Background append only file rewriting already in progress")
 	}
 	return resp.SimpleString("Background append only file rewriting started")

@@ -1,4 +1,6 @@
-package main
+// Package engine runs the database operations. It keeps the store and the
+// append-only file in step.
+package engine
 
 import (
 	"fmt"
@@ -28,13 +30,13 @@ type Engine struct {
 	rewriting atomic.Bool
 }
 
-func NewEngine(db *store.Store, aofLog *aof.Log) *Engine {
+func New(db *store.Store, aofLog *aof.Log) *Engine {
 	return &Engine{db: db, aofLog: aofLog}
 }
 
-// OpenEngine loads the saved changes from the append-only file into a new
+// Open loads the saved changes from the append-only file into a new
 // store, opens the file for new changes, and returns an engine for both.
-func OpenEngine(aofPath string) (*Engine, error) {
+func Open(aofPath string) (*Engine, error) {
 	db := store.New()
 
 	// The saved changes are loaded before any client can connect, so no
@@ -53,13 +55,13 @@ func OpenEngine(aofPath string) (*Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not open the append-only file: %w", err)
 	}
-	return NewEngine(db, aofLog), nil
+	return New(db, aofLog), nil
 }
 
-// MustOpenEngine works like OpenEngine, but if that fails, it prints the
-// error and exits.
-func MustOpenEngine(aofPath string) *Engine {
-	engine, err := OpenEngine(aofPath)
+// MustOpen works like Open, but if that fails, it prints the error and
+// exits.
+func MustOpen(aofPath string) *Engine {
+	engine, err := Open(aofPath)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

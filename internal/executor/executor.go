@@ -1,8 +1,10 @@
-package main
+// Package executor finds the handler for each command and runs it.
+package executor
 
 import (
 	"strings"
 
+	"github.com/viminizer/keystone/internal/engine"
 	"github.com/viminizer/keystone/internal/resp"
 )
 
@@ -10,20 +12,20 @@ import (
 type Handler struct {
 	// Run gets the arguments without the command name, and returns the
 	// reply to send.
-	Run func(engine *Engine, args []string) string
+	Run func(db *engine.Engine, args []string) string
 }
 
 // Executor finds the handler for a command and runs it.
 type Executor struct {
-	engine *Engine
-	// commands is only changed by NewExecutor, before any client connects.
+	db *engine.Engine
+	// commands is only changed by New, before any client connects.
 	// After that it is only read, so it needs no lock.
 	commands map[string]Handler
 }
 
-func NewExecutor(engine *Engine) *Executor {
+func New(db *engine.Engine) *Executor {
 	executor := &Executor{
-		engine:   engine,
+		db:       db,
 		commands: map[string]Handler{},
 	}
 
@@ -40,7 +42,7 @@ func NewExecutor(engine *Engine) *Executor {
 }
 
 // Register adds the handler for one command. The name must be in capitals.
-func (e *Executor) Register(name string, run func(engine *Engine, args []string) string) {
+func (e *Executor) Register(name string, run func(db *engine.Engine, args []string) string) {
 	e.commands[name] = Handler{Run: run}
 }
 
@@ -55,5 +57,5 @@ func (e *Executor) Execute(command []string) string {
 	if !found {
 		return resp.Error("ERR unknown command '" + command[0] + "'")
 	}
-	return handler.Run(e.engine, command[1:])
+	return handler.Run(e.db, command[1:])
 }

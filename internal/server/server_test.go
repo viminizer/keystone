@@ -1,14 +1,23 @@
-package main
+package server
 
 import (
 	"io"
 	"net"
+	"path/filepath"
 	"testing"
+
+	"github.com/viminizer/keystone/internal/aof"
+	"github.com/viminizer/keystone/internal/engine"
+	"github.com/viminizer/keystone/internal/executor"
+	"github.com/viminizer/keystone/internal/store"
 )
 
 func TestHandleConnection(t *testing.T) {
-	executor, _ := newTestExecutor(t)
-	server := NewServer(0, executor)
+	aofLog, err := aof.Open(filepath.Join(t.TempDir(), "appendonly.aof"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := New(0, executor.New(engine.New(store.New(), aofLog)))
 	// net.Pipe gives two connected ends that work in memory, without a port.
 	client, serverEnd := net.Pipe()
 	defer client.Close()
