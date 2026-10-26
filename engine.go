@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -53,6 +54,17 @@ func OpenEngine(aofPath string) (*Engine, error) {
 		return nil, fmt.Errorf("could not open the append-only file: %w", err)
 	}
 	return NewEngine(db, aofLog), nil
+}
+
+// MustOpenEngine works like OpenEngine, but if that fails, it prints the
+// error and exits.
+func MustOpenEngine(aofPath string) *Engine {
+	engine, err := OpenEngine(aofPath)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	return engine
 }
 
 func (e *Engine) Set(key string, value string) {
