@@ -28,11 +28,10 @@ func main() {
 	go stopOnKillSignal(engine)
 
 	server := NewServer(config.port, executor)
+	// ListenAndServe only returns if the port could not be opened.
 	err = server.ListenAndServe()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	fmt.Println(err)
+	os.Exit(1)
 }
 
 // stopOnKillSignal waits for Ctrl+C (SIGINT) or kill (SIGTERM), and then stops
