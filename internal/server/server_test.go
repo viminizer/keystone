@@ -9,6 +9,7 @@ import (
 	"github.com/viminizer/keystone/internal/aof"
 	"github.com/viminizer/keystone/internal/engine"
 	"github.com/viminizer/keystone/internal/executor"
+	"github.com/viminizer/keystone/internal/metrics"
 	"github.com/viminizer/keystone/internal/store"
 )
 
@@ -17,7 +18,7 @@ func TestHandleConnection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := New(0, executor.New(engine.New(store.New(), aofLog)))
+	server := New(0, executor.New(engine.New(store.New(), aofLog), metrics.NewCommands()))
 	// net.Pipe gives two connected ends that work in memory, without a port.
 	client, serverEnd := net.Pipe()
 	defer client.Close()
