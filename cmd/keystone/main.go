@@ -20,11 +20,7 @@ func main() {
 	commandExecutor := executor.New(db, commandMetrics)
 	backgroundWorkers := workers.New(db)
 	backgroundWorkers.Start()
-
-	if settings.MetricsEnabled {
-		metricsServer := metricsserver.New(settings.MetricsPort, commandMetrics)
-		metricsServer.MustStart()
-	}
+	metricsserver.New(settings.MetricsEnabled, settings.MetricsPort, commandMetrics).MustStart()
 
 	tcpServer := server.New(settings.Port, commandExecutor)
 	tcpServer.MustListenAndServe()

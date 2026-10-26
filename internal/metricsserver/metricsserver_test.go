@@ -13,7 +13,7 @@ func TestHandleMetrics(t *testing.T) {
 	commandMetrics := metrics.NewCommands()
 	commandMetrics.Add("GET")
 	commandMetrics.Record("GET", time.Microsecond, false)
-	server := New(0, commandMetrics)
+	server := New(true, 0, commandMetrics)
 
 	// httptest makes a fake request and records the reply, without a port.
 	request := httptest.NewRequest("GET", "/metrics", nil)

@@ -15,18 +15,25 @@ import (
 // Server answers GET /metrics with the metrics in the Prometheus text
 // format.
 type Server struct {
+	enabled  bool
 	port     int
 	commands *metrics.Commands
 }
 
-func New(port int, commandMetrics *metrics.Commands) *Server {
-	return &Server{port: port, commands: commandMetrics}
+// New makes a metrics server. If enabled is false, MustStart does nothing.
+func New(enabled bool, port int, commandMetrics *metrics.Commands) *Server {
+	return &Server{enabled: enabled, port: port, commands: commandMetrics}
 }
 
 // MustStart opens the port and serves the metrics in the background. It
 // opens the port before it returns, so if the port is taken, keystone
 // stops right at start. Then it logs the error and exits.
 func (s *Server) MustStart() {
+	if !s.enabled {
+		slog.Info("metrics are turned off")
+		return
+	}
+
 	listener, err := net.Listen("tcp", ":"+strconv.Itoa(s.port))
 	if err != nil {
 		slog.Error("could not start the metrics server", "error", err)
