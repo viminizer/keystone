@@ -9,6 +9,8 @@ type ExpiryStats struct {
 	active atomic.Int64
 	// lookup counts the keys deleted when a client touched them.
 	lookup atomic.Int64
+	// keysWithExpiry is how many keys have an expiry right now.
+	keysWithExpiry atomic.Int64
 }
 
 func NewExpiryStats() *ExpiryStats {
@@ -23,4 +25,9 @@ func (e *ExpiryStats) RecordActive(count int) {
 // RecordLookup adds one key deleted when a client touched it.
 func (e *ExpiryStats) RecordLookup() {
 	e.lookup.Add(1)
+}
+
+// SetKeysWithExpiry saves how many keys have an expiry right now.
+func (e *ExpiryStats) SetKeysWithExpiry(count int) {
+	e.keysWithExpiry.Store(int64(count))
 }

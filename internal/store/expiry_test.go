@@ -76,6 +76,7 @@ func TestExpiryStats(t *testing.T) {
 	db.SetWithExpiry("read", "value", time.Now().Add(time.Millisecond))
 	db.SetWithExpiry("unread1", "value", time.Now().Add(time.Millisecond))
 	db.SetWithExpiry("unread2", "value", time.Now().Add(time.Millisecond))
+	db.SetWithExpiry("later", "value", time.Now().Add(time.Hour))
 	time.Sleep(5 * time.Millisecond)
 
 	db.Get("read")
@@ -89,6 +90,7 @@ func TestExpiryStats(t *testing.T) {
 	for _, line := range []string{
 		`keystone_expired_keys_total{by="active"} 2`,
 		`keystone_expired_keys_total{by="lookup"} 1`,
+		"keystone_keys_with_expiry 1",
 	} {
 		if !strings.Contains(output.String(), line+"\n") {
 			t.Errorf("missing line %s in:\n%s", line, output.String())

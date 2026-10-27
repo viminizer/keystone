@@ -69,6 +69,10 @@ func (e *ExpiryStats) WritePrometheus(writer io.Writer) error {
 	fmt.Fprintf(&text, "keystone_expired_keys_total{by=\"active\"} %d\n", e.active.Load())
 	fmt.Fprintf(&text, "keystone_expired_keys_total{by=\"lookup\"} %d\n", e.lookup.Load())
 
+	text.WriteString("# HELP keystone_keys_with_expiry Keys that have an expiry right now.\n")
+	text.WriteString("# TYPE keystone_keys_with_expiry gauge\n")
+	fmt.Fprintf(&text, "keystone_keys_with_expiry %d\n", e.keysWithExpiry.Load())
+
 	_, err := io.WriteString(writer, text.String())
 	return err
 }
