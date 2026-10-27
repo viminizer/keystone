@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/viminizer/keystone/internal/aof"
+	"github.com/viminizer/keystone/internal/metrics"
 	"github.com/viminizer/keystone/internal/store"
 )
 
@@ -28,16 +29,17 @@ type Engine struct {
 	writeMutex sync.Mutex
 	// rewriting is true while the log is being rewritten, so only one
 	// rewrite runs at a time.
-	rewriting atomic.Bool
+	rewriting        atomic.Bool
+	persistenceStats *metrics.PersistenceStats
 }
 
-func New(storage *store.Store, aofLog *aof.Log) *Engine {
-	return &Engine{storage: storage, aofLog: aofLog}
+func New(storage *store.Store, aofLog *aof.Log, persistenceStats *metrics.PersistenceStats) *Engine {
+	return &Engine{storage: storage, aofLog: aofLog, persistenceStats: persistenceStats}
 }
 
 // Start loads the saved changes from the append-only file into a new
 // store, opens the file for new changes, and returns an engine for both.
-func Start(aofPath string) (*Engine, error) {
+func Start(aofPath string, persistenceStats *metrics.PersistenceStats) (*Engine, error) {
 	storage := store.New()
 
 	// The saved changes are loaded before any client can connect, so no
@@ -56,13 +58,13 @@ func Start(aofPath string) (*Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not open the append-only file: %w", err)
 	}
-	return New(storage, aofLog), nil
+	return New(storage, aofLog, persistenceStats), nil
 }
 
 // MustStart works like Start, but if that fails, it logs the error and
 // exits.
-func MustStart(aofPath string) *Engine {
-	engine, err := Start(aofPath)
+func MustStart(aofPath string, persistenceStats *metrics.PersistenceStats) *Engine {
+	engine, err := Start(aofPath, persistenceStats)
 	if err != nil {
 		slog.Error("could not start the engine", "error", err)
 		os.Exit(1)
@@ -152,6 +154,7 @@ func (e *Engine) rewrite() {
 	e.writeMutex.Lock()
 	defer e.writeMutex.Unlock()
 
+	start := time.Now()
 	items := e.storage.Snapshot()
 	commands := [][]string{}
 	for _, item := range items {
@@ -166,12 +169,23 @@ func (e *Engine) rewrite() {
 		slog.Error("could not rewrite the append-only file", "error", err)
 		return
 	}
+	e.persistenceStats.RecordRewrite(time.Since(start))
 	slog.Info("rewrote the append-only file", "keys", len(items))
 }
 
-// SyncLog puts the log on the disk.
+// SyncLog puts the log on the disk, and saves how long that took and the
+// size of the log.
 func (e *Engine) SyncLog() error {
-	return e.aofLog.Sync()
+	size, _ := e.aofLog.Sizes()
+	e.persistenceStats.SetSize(size)
+
+	start := time.Now()
+	err := e.aofLog.Sync()
+	if err != nil {
+		return err
+	}
+	e.persistenceStats.RecordFsync(time.Since(start))
+	return nil
 }
 
 // DeleteExpiredKeys deletes some of the expired keys that nobody reads. It

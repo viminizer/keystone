@@ -5,6 +5,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // WritePrometheus writes the numbers of every command in the Prometheus
@@ -17,21 +18,8 @@ func (c *CommandStats) WritePrometheus(writer io.Writer) error {
 	text.WriteString("# HELP keystone_command_duration_seconds Time it took to run each command.\n")
 	text.WriteString("# TYPE keystone_command_duration_seconds histogram\n")
 	for _, command := range snapshots {
-		name := strings.ToLower(command.Name)
-		// Prometheus wants each bucket to count everything up to its limit,
-		// so the counts are added up on the way.
-		upToLimit := int64(0)
-		for i, limit := range command.Latency.Limits {
-			upToLimit += command.Latency.Buckets[i]
-			fmt.Fprintf(&text, "keystone_command_duration_seconds_bucket{command=%q,le=%q} %d\n",
-				name, formatSeconds(limit.Seconds()), upToLimit)
-		}
-		fmt.Fprintf(&text, "keystone_command_duration_seconds_bucket{command=%q,le=\"+Inf\"} %d\n",
-			name, command.Latency.Count)
-		fmt.Fprintf(&text, "keystone_command_duration_seconds_sum{command=%q} %s\n",
-			name, formatSeconds(command.Latency.Sum.Seconds()))
-		fmt.Fprintf(&text, "keystone_command_duration_seconds_count{command=%q} %d\n",
-			name, command.Latency.Count)
+		label := fmt.Sprintf("command=%q", strings.ToLower(command.Name))
+		writeHistogram(&text, "keystone_command_duration_seconds", label, command.Latency)
 	}
 
 	text.WriteString("# HELP keystone_command_errors_total Commands that replied with an error.\n")
@@ -43,6 +31,54 @@ func (c *CommandStats) WritePrometheus(writer io.Writer) error {
 
 	_, err := io.WriteString(writer, text.String())
 	return err
+}
+
+// WritePrometheus writes the numbers about the append-only file in the
+// Prometheus text format.
+func (p *PersistenceStats) WritePrometheus(writer io.Writer) error {
+	var text strings.Builder
+
+	text.WriteString("# HELP keystone_aof_fsync_duration_seconds Time it took to put the append-only file on the disk.\n")
+	text.WriteString("# TYPE keystone_aof_fsync_duration_seconds histogram\n")
+	writeHistogram(&text, "keystone_aof_fsync_duration_seconds", "", p.fsyncLatency.Snapshot())
+
+	text.WriteString("# HELP keystone_aof_size_bytes Size of the append-only file.\n")
+	text.WriteString("# TYPE keystone_aof_size_bytes gauge\n")
+	fmt.Fprintf(&text, "keystone_aof_size_bytes %d\n", p.sizeBytes.Load())
+
+	text.WriteString("# HELP keystone_aof_rewrites_total Rewrites of the append-only file that worked.\n")
+	text.WriteString("# TYPE keystone_aof_rewrites_total counter\n")
+	fmt.Fprintf(&text, "keystone_aof_rewrites_total %d\n", p.rewrites.Load())
+
+	text.WriteString("# HELP keystone_aof_last_rewrite_duration_seconds Time the last rewrite of the append-only file took.\n")
+	text.WriteString("# TYPE keystone_aof_last_rewrite_duration_seconds gauge\n")
+	lastRewrite := time.Duration(p.lastRewriteDuration.Load())
+	fmt.Fprintf(&text, "keystone_aof_last_rewrite_duration_seconds %s\n", formatSeconds(lastRewrite.Seconds()))
+
+	_, err := io.WriteString(writer, text.String())
+	return err
+}
+
+// writeHistogram writes the bucket, sum and count lines of one histogram.
+// labels is like command="get", or empty when there are no labels.
+func writeHistogram(text *strings.Builder, name string, labels string, histogram HistogramSnapshot) {
+	bucketLabels := "le="
+	otherLabels := ""
+	if labels != "" {
+		bucketLabels = labels + ",le="
+		otherLabels = "{" + labels + "}"
+	}
+
+	// Prometheus wants each bucket to count everything up to its limit,
+	// so the counts are added up on the way.
+	upToLimit := int64(0)
+	for i, limit := range histogram.Limits {
+		upToLimit += histogram.Buckets[i]
+		fmt.Fprintf(text, "%s_bucket{%s%q} %d\n", name, bucketLabels, formatSeconds(limit.Seconds()), upToLimit)
+	}
+	fmt.Fprintf(text, "%s_bucket{%s\"+Inf\"} %d\n", name, bucketLabels, histogram.Count)
+	fmt.Fprintf(text, "%s_sum%s %s\n", name, otherLabels, formatSeconds(histogram.Sum.Seconds()))
+	fmt.Fprintf(text, "%s_count%s %d\n", name, otherLabels, histogram.Count)
 }
 
 // formatSeconds writes a number of seconds as short as possible, like

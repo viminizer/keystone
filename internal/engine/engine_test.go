@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/viminizer/keystone/internal/aof"
+	"github.com/viminizer/keystone/internal/metrics"
 	"github.com/viminizer/keystone/internal/store"
 )
 
@@ -79,7 +80,7 @@ func TestRewrite(t *testing.T) {
 		t.Fatalf("logged %d commands, want 4", logged)
 	}
 
-	after, err := Start(path)
+	after, err := Start(path, metrics.NewPersistenceStats())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,5 +118,5 @@ func newTestEngine(t *testing.T) (*Engine, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(store.New(), aofLog), path
+	return New(store.New(), aofLog, metrics.NewPersistenceStats()), path
 }
