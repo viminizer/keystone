@@ -43,5 +43,7 @@ func (s *Store) deleteExpiredSample() (int, int) {
 			deleted++
 		}
 	}
+	s.expiryStats.RecordActive(deleted)
+	s.expiryStats.SetKeysWithExpiry(len(s.expiring))
 	return checked, deleted
 }

@@ -16,7 +16,7 @@ func main() {
 	logging.Setup(settings)
 
 	metricsRegistry := metrics.NewRegistry()
-	db := engine.MustStart(settings.AOFPath, metricsRegistry.PersistenceStats)
+	db := engine.MustStart(settings.AOFPath, metricsRegistry)
 	commandExecutor := executor.New(db, metricsRegistry.CommandStats)
 	backgroundWorkers := workers.New(db)
 	backgroundWorkers.Start()

@@ -33,7 +33,7 @@ func TestShouldRewrite(t *testing.T) {
 }
 
 func TestReplayCommand(t *testing.T) {
-	storage := store.New()
+	storage := store.New(metrics.NewExpiryStats())
 	commands := [][]string{
 		{"SET", "a", "1"},
 		{"SET", "b", "2"},
@@ -80,7 +80,7 @@ func TestRewrite(t *testing.T) {
 		t.Fatalf("logged %d commands, want 4", logged)
 	}
 
-	after, err := Start(path, metrics.NewPersistenceStats())
+	after, err := Start(path, metrics.NewRegistry())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,5 +118,5 @@ func newTestEngine(t *testing.T) (*Engine, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(store.New(), aofLog, metrics.NewPersistenceStats()), path
+	return New(store.New(metrics.NewExpiryStats()), aofLog, metrics.NewPersistenceStats()), path
 }

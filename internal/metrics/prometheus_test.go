@@ -73,3 +73,30 @@ func TestWritePrometheusPersistence(t *testing.T) {
 		}
 	}
 }
+
+func TestWritePrometheusExpiry(t *testing.T) {
+	expiryStats := NewExpiryStats()
+	expiryStats.RecordActive(3)
+	expiryStats.RecordActive(2)
+	expiryStats.RecordLookup()
+	expiryStats.SetKeysWithExpiry(7)
+
+	var output strings.Builder
+	err := expiryStats.WritePrometheus(&output)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := output.String()
+	wantLines := []string{
+		"# TYPE keystone_expired_keys_total counter",
+		`keystone_expired_keys_total{by="active"} 5`,
+		`keystone_expired_keys_total{by="lookup"} 1`,
+		"keystone_keys_with_expiry 7",
+	}
+	for _, line := range wantLines {
+		if !strings.Contains(got, line+"\n") {
+			t.Errorf("missing line %s in:\n%s", line, got)
+		}
+	}
+}

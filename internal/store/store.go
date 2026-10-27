@@ -4,6 +4,8 @@ package store
 import (
 	"sync"
 	"time"
+
+	"github.com/viminizer/keystone/internal/metrics"
 )
 
 // entry is what the store saves for one key.
@@ -20,14 +22,16 @@ type Store struct {
 	data  map[string]entry
 	// expiring holds only the keys that have an expiry, so active
 	// expiry can find them without looking at every key.
-	expiring map[string]bool
+	expiring    map[string]bool
+	expiryStats *metrics.ExpiryStats
 }
 
 // New returns an empty store.
-func New() *Store {
+func New(expiryStats *metrics.ExpiryStats) *Store {
 	return &Store{
-		data:     map[string]entry{},
-		expiring: map[string]bool{},
+		data:        map[string]entry{},
+		expiring:    map[string]bool{},
+		expiryStats: expiryStats,
 	}
 }
 
@@ -100,6 +104,7 @@ func (s *Store) lookup(key string) (entry, bool) {
 	}
 	if !item.expiresAt.IsZero() && time.Now().After(item.expiresAt) {
 		s.remove(key)
+		s.expiryStats.RecordLookup()
 		return entry{}, false
 	}
 	return item, true
