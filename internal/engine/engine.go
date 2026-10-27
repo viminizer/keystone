@@ -35,9 +35,9 @@ func New(storage *store.Store, aofLog *aof.Log) *Engine {
 	return &Engine{storage: storage, aofLog: aofLog}
 }
 
-// Open loads the saved changes from the append-only file into a new
+// Start loads the saved changes from the append-only file into a new
 // store, opens the file for new changes, and returns an engine for both.
-func Open(aofPath string) (*Engine, error) {
+func Start(aofPath string) (*Engine, error) {
 	storage := store.New()
 
 	// The saved changes are loaded before any client can connect, so no
@@ -59,12 +59,12 @@ func Open(aofPath string) (*Engine, error) {
 	return New(storage, aofLog), nil
 }
 
-// MustOpen works like Open, but if that fails, it logs the error and
+// MustStart works like Start, but if that fails, it logs the error and
 // exits.
-func MustOpen(aofPath string) *Engine {
-	engine, err := Open(aofPath)
+func MustStart(aofPath string) *Engine {
+	engine, err := Start(aofPath)
 	if err != nil {
-		slog.Error("could not open the engine", "error", err)
+		slog.Error("could not start the engine", "error", err)
 		os.Exit(1)
 	}
 	return engine

@@ -79,7 +79,7 @@ func TestRewrite(t *testing.T) {
 		t.Fatalf("logged %d commands, want 4", logged)
 	}
 
-	after, err := Open(path)
+	after, err := Start(path)
 	if err != nil {
 		t.Fatal(err)
 	}

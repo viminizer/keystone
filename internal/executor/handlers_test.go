@@ -280,7 +280,7 @@ func newTestExecutor(t *testing.T) (*Executor, string) {
 // restart opens the log at path the same way keystone does at start, and
 // returns an executor for it.
 func restart(t *testing.T, path string) *Executor {
-	db, err := engine.Open(path)
+	db, err := engine.Start(path)
 	if err != nil {
 		t.Fatal(err)
 	}
