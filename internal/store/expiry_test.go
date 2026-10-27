@@ -2,12 +2,15 @@ package store
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/viminizer/keystone/internal/metrics"
 )
 
 func TestDeleteExpiredKeys(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 	for i := range 100 {
 		db.SetWithExpiry("temp"+strconv.Itoa(i), "value", time.Now().Add(time.Millisecond))
 	}
@@ -28,7 +31,7 @@ func TestDeleteExpiredKeys(t *testing.T) {
 }
 
 func TestDeleteExpiredSampleKeepsLiveKeys(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 	db.SetWithExpiry("name", "kevin", time.Now().Add(time.Hour))
 
 	checked, deleted := db.deleteExpiredSample()
@@ -41,7 +44,7 @@ func TestDeleteExpiredSampleKeepsLiveKeys(t *testing.T) {
 }
 
 func TestExpiringStaysInSync(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 
 	db.SetWithExpiry("a", "1", time.Now().Add(time.Hour))
 	db.Set("a", "2")
@@ -64,5 +67,31 @@ func TestExpiringStaysInSync(t *testing.T) {
 	db.Get("c")
 	if db.expiring["c"] {
 		t.Error("lazy expiry did not remove the key from expiring")
+	}
+}
+
+func TestExpiryStats(t *testing.T) {
+	expiryStats := metrics.NewExpiryStats()
+	db := New(expiryStats)
+	db.SetWithExpiry("read", "value", time.Now().Add(time.Millisecond))
+	db.SetWithExpiry("unread1", "value", time.Now().Add(time.Millisecond))
+	db.SetWithExpiry("unread2", "value", time.Now().Add(time.Millisecond))
+	time.Sleep(5 * time.Millisecond)
+
+	db.Get("read")
+	db.DeleteExpiredKeys()
+
+	var output strings.Builder
+	err := expiryStats.WritePrometheus(&output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{
+		`keystone_expired_keys_total{by="active"} 2`,
+		`keystone_expired_keys_total{by="lookup"} 1`,
+	} {
+		if !strings.Contains(output.String(), line+"\n") {
+			t.Errorf("missing line %s in:\n%s", line, output.String())
+		}
 	}
 }

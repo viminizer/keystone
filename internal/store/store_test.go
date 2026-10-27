@@ -5,10 +5,12 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/viminizer/keystone/internal/metrics"
 )
 
 func TestSetAndGet(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 	db.Set("name", "kevin")
 
 	value, found := db.Get("name")
@@ -18,7 +20,7 @@ func TestSetAndGet(t *testing.T) {
 }
 
 func TestSetReplacesOldValue(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 	db.Set("name", "kevin")
 	db.Set("name", "alex")
 
@@ -29,7 +31,7 @@ func TestSetReplacesOldValue(t *testing.T) {
 }
 
 func TestGetMissingKey(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 
 	_, found := db.Get("name")
 	if found {
@@ -38,7 +40,7 @@ func TestGetMissingKey(t *testing.T) {
 }
 
 func TestManyGoroutines(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 	var group sync.WaitGroup
 
 	// Without the mutex, Go stops the program here with
@@ -61,7 +63,7 @@ func TestManyGoroutines(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 	db.Set("name", "kevin")
 
 	if !db.Delete("name") {
@@ -76,7 +78,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestExpiredKeyIsGone(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 	db.Set("name", "kevin")
 	db.ExpireAt("name", time.Now().Add(10*time.Millisecond))
 
@@ -90,14 +92,14 @@ func TestExpiredKeyIsGone(t *testing.T) {
 }
 
 func TestExpireMissingKey(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 	if db.ExpireAt("name", time.Now().Add(time.Second)) {
 		t.Error("Expire on a missing key returned true")
 	}
 }
 
 func TestSetRemovesExpiry(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 	db.Set("name", "kevin")
 	db.ExpireAt("name", time.Now().Add(time.Second))
 	db.Set("name", "alex")
@@ -109,7 +111,7 @@ func TestSetRemovesExpiry(t *testing.T) {
 }
 
 func TestSetWithExpiry(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 	db.SetWithExpiry("name", "kevin", time.Now().Add(10*time.Millisecond))
 
 	if value, found := db.Get("name"); !found || value != "kevin" {
@@ -122,7 +124,7 @@ func TestSetWithExpiry(t *testing.T) {
 }
 
 func TestExpireAt(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 	db.Set("name", "kevin")
 	at := time.Now().Add(time.Hour)
 
@@ -141,7 +143,7 @@ func TestExpireAt(t *testing.T) {
 }
 
 func TestSnapshot(t *testing.T) {
-	db := New()
+	db := New(metrics.NewExpiryStats())
 	db.Set("name", "kevin")
 	at := time.Now().Add(time.Hour)
 	db.SetWithExpiry("session", "abc", at)

@@ -59,6 +59,20 @@ func (p *PersistenceStats) WritePrometheus(writer io.Writer) error {
 	return err
 }
 
+// WritePrometheus writes the counts of expired keys in the Prometheus text
+// format, with a label for how each key was found.
+func (e *ExpiryStats) WritePrometheus(writer io.Writer) error {
+	var text strings.Builder
+
+	text.WriteString("# HELP keystone_expired_keys_total Keys deleted because their time ran out.\n")
+	text.WriteString("# TYPE keystone_expired_keys_total counter\n")
+	fmt.Fprintf(&text, "keystone_expired_keys_total{by=\"active\"} %d\n", e.active.Load())
+	fmt.Fprintf(&text, "keystone_expired_keys_total{by=\"lookup\"} %d\n", e.lookup.Load())
+
+	_, err := io.WriteString(writer, text.String())
+	return err
+}
+
 // writeHistogram writes the bucket, sum and count lines of one histogram.
 // labels is like command="get", or empty when there are no labels.
 func writeHistogram(text *strings.Builder, name string, labels string, histogram HistogramSnapshot) {

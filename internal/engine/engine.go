@@ -39,8 +39,8 @@ func New(storage *store.Store, aofLog *aof.Log, persistenceStats *metrics.Persis
 
 // Start loads the saved changes from the append-only file into a new
 // store, opens the file for new changes, and returns an engine for both.
-func Start(aofPath string, persistenceStats *metrics.PersistenceStats) (*Engine, error) {
-	storage := store.New()
+func Start(aofPath string, metricsRegistry *metrics.Registry) (*Engine, error) {
+	storage := store.New(metricsRegistry.ExpiryStats)
 
 	// The saved changes are loaded before any client can connect, so no
 	// client sees the data half loaded.
@@ -58,13 +58,13 @@ func Start(aofPath string, persistenceStats *metrics.PersistenceStats) (*Engine,
 	if err != nil {
 		return nil, fmt.Errorf("could not open the append-only file: %w", err)
 	}
-	return New(storage, aofLog, persistenceStats), nil
+	return New(storage, aofLog, metricsRegistry.PersistenceStats), nil
 }
 
 // MustStart works like Start, but if that fails, it logs the error and
 // exits.
-func MustStart(aofPath string, persistenceStats *metrics.PersistenceStats) *Engine {
-	engine, err := Start(aofPath, persistenceStats)
+func MustStart(aofPath string, metricsRegistry *metrics.Registry) *Engine {
+	engine, err := Start(aofPath, metricsRegistry)
 	if err != nil {
 		slog.Error("could not start the engine", "error", err)
 		os.Exit(1)

@@ -11,12 +11,14 @@ import (
 type Registry struct {
 	CommandStats     *CommandStats
 	PersistenceStats *PersistenceStats
+	ExpiryStats      *ExpiryStats
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
 		CommandStats:     NewCommandStats(),
 		PersistenceStats: NewPersistenceStats(),
+		ExpiryStats:      NewExpiryStats(),
 	}
 }
 
@@ -27,7 +29,11 @@ func (r *Registry) WritePrometheus(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return r.PersistenceStats.WritePrometheus(writer)
+	err = r.PersistenceStats.WritePrometheus(writer)
+	if err != nil {
+		return err
+	}
+	return r.ExpiryStats.WritePrometheus(writer)
 }
 
 // HandleMetrics is the HTTP handler that answers with every metric, for
