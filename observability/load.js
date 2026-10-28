@@ -8,7 +8,7 @@
 //
 //   k6 run observability/load.js
 
-import redis from "k6/experimental/redis";
+import redis from "k6/x/redis";
 
 const client = new redis.Client("redis://localhost:6380");
 
