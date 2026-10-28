@@ -67,7 +67,7 @@ func (e *ExpiryStats) WritePrometheus(writer io.Writer) error {
 	text.WriteString("# HELP keystone_expired_keys_total Keys deleted because their time ran out.\n")
 	text.WriteString("# TYPE keystone_expired_keys_total counter\n")
 	fmt.Fprintf(&text, "keystone_expired_keys_total{by=\"active\"} %d\n", e.active.Load())
-	fmt.Fprintf(&text, "keystone_expired_keys_total{by=\"lookup\"} %d\n", e.lookup.Load())
+	fmt.Fprintf(&text, "keystone_expired_keys_total{by=\"lazy\"} %d\n", e.lazy.Load())
 
 	text.WriteString("# HELP keystone_keys_with_expiry Keys that have an expiry right now.\n")
 	text.WriteString("# TYPE keystone_keys_with_expiry gauge\n")

@@ -7,8 +7,8 @@ import "sync/atomic"
 type ExpiryStats struct {
 	// active counts the keys deleted by the background cleanup.
 	active atomic.Int64
-	// lookup counts the keys deleted when a client touched them.
-	lookup atomic.Int64
+	// lazy counts the keys deleted when a client touched them.
+	lazy atomic.Int64
 	// keysWithExpiry is how many keys have an expiry right now.
 	keysWithExpiry atomic.Int64
 }
@@ -24,7 +24,7 @@ func (e *ExpiryStats) RecordActiveExpiry(count int) {
 
 // RecordLazyExpiry adds one key deleted when a client touched it.
 func (e *ExpiryStats) RecordLazyExpiry() {
-	e.lookup.Add(1)
+	e.lazy.Add(1)
 }
 
 // SetKeysWithExpiry saves how many keys have an expiry right now.

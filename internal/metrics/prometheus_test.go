@@ -91,7 +91,7 @@ func TestWritePrometheusExpiry(t *testing.T) {
 	wantLines := []string{
 		"# TYPE keystone_expired_keys_total counter",
 		`keystone_expired_keys_total{by="active"} 5`,
-		`keystone_expired_keys_total{by="lookup"} 1`,
+		`keystone_expired_keys_total{by="lazy"} 1`,
 		"keystone_keys_with_expiry 7",
 	}
 	for _, line := range wantLines {

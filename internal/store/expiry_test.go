@@ -89,7 +89,7 @@ func TestExpiryStats(t *testing.T) {
 	}
 	for _, line := range []string{
 		`keystone_expired_keys_total{by="active"} 2`,
-		`keystone_expired_keys_total{by="lookup"} 1`,
+		`keystone_expired_keys_total{by="lazy"} 1`,
 		"keystone_keys_with_expiry 1",
 	} {
 		if !strings.Contains(output.String(), line+"\n") {
