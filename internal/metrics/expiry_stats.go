@@ -17,13 +17,13 @@ func NewExpiryStats() *ExpiryStats {
 	return &ExpiryStats{}
 }
 
-// RecordActive adds keys deleted by the background cleanup.
-func (e *ExpiryStats) RecordActive(count int) {
+// RecordActiveExpiry adds keys deleted by the background cleanup.
+func (e *ExpiryStats) RecordActiveExpiry(count int) {
 	e.active.Add(int64(count))
 }
 
-// RecordLookup adds one key deleted when a client touched it.
-func (e *ExpiryStats) RecordLookup() {
+// RecordLazyExpiry adds one key deleted when a client touched it.
+func (e *ExpiryStats) RecordLazyExpiry() {
 	e.lookup.Add(1)
 }
 

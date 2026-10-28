@@ -104,7 +104,7 @@ func (s *Store) lookup(key string) (entry, bool) {
 	}
 	if !item.expiresAt.IsZero() && time.Now().After(item.expiresAt) {
 		s.remove(key)
-		s.expiryStats.RecordLookup()
+		s.expiryStats.RecordLazyExpiry()
 		return entry{}, false
 	}
 	return item, true

@@ -76,9 +76,9 @@ func TestWritePrometheusPersistence(t *testing.T) {
 
 func TestWritePrometheusExpiry(t *testing.T) {
 	expiryStats := NewExpiryStats()
-	expiryStats.RecordActive(3)
-	expiryStats.RecordActive(2)
-	expiryStats.RecordLookup()
+	expiryStats.RecordActiveExpiry(3)
+	expiryStats.RecordActiveExpiry(2)
+	expiryStats.RecordLazyExpiry()
 	expiryStats.SetKeysWithExpiry(7)
 
 	var output strings.Builder
